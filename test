@@ -1,0 +1,88 @@
+-- Load WindUI
+local WindUI = loadstring(game:HttpGet(
+"https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
+))()
+
+local Window = WindUI:CreateWindow({
+    Title = "MM2 Utility",
+    Size = UDim2.fromOffset(320,260)
+})
+
+local BoxesTab = Window:Tab({ Title = "Boxes", Icon = "box" })
+local Section = BoxesTab:Section({ Title = "Box Settings", Open = true })
+
+local crates = {
+    "KnifeBox1","KnifeBox2","KnifeBox3","KnifeBox4","KnifeBox5",
+    "GunBox1","GunBox2","GunBox3","GunBox4","GunBox5",
+    "MysteryBox1","MysteryBox2"
+}
+
+local selectedCrate = nil
+local autoOpen = false
+
+-- Dropdown
+Section:Dropdown({
+    Title = "Select Box",
+    Values = crates,
+    Callback = function(value)
+        selectedCrate = value
+        print("Selected box:", value)
+    end
+})
+
+local player = game.Players.LocalPlayer
+
+-- Function to find shop
+local function getShop()
+    local gui = player:WaitForChild("PlayerGui"):WaitForChild("MainGUI")
+    local gameFrame = gui:FindFirstChild("Game")
+    return gameFrame and gameFrame:FindFirstChild("Shop")
+end
+
+-- Function to find the correct crate button
+local function findCrateButton(crateName)
+    local shop = getShop()
+    if not shop then return nil end
+
+    for _,v in ipairs(shop:GetDescendants()) do
+        if (v:IsA("TextButton") or v:IsA("ImageButton")) then
+            if string.find(string.lower(v.Name), string.lower(crateName)) then
+                return v
+            end
+        end
+    end
+
+    return nil
+end
+
+-- Toggle
+Section:Toggle({
+    Title = "Auto open boxes",
+    Default = false,
+    Callback = function(state)
+        autoOpen = state
+
+        if autoOpen then
+            task.spawn(function()
+                while autoOpen do
+                    if selectedCrate then
+
+                        local crateButton = findCrateButton(selectedCrate)
+
+                        if crateButton then
+                            crateButton:Activate()
+                            print("Clicked crate:", selectedCrate)
+                        else
+                            warn("Could not find crate button:", selectedCrate)
+                        end
+
+                    else
+                        warn("No box selected")
+                    end
+
+                    task.wait(0.4)
+                end
+            end)
+        end
+    end
+})
