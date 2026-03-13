@@ -185,7 +185,36 @@ local function hideOtherPlayers(char)
 	end
 end
 
+-- ==============================
+-- Blackscreen (client-side)
+-- ==============================
+local blackscreenGui = Instance.new("ScreenGui")
+blackscreenGui.Name = "ClientBlackScreen"
+blackscreenGui.ResetOnSpawn = false
+blackscreenGui.IgnoreGuiInset = true
+blackscreenGui.DisplayOrder = 99999
+blackscreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+blackscreenGui.Parent = game:GetService("CoreGui") -- topmost
+
+local blackscreenFrame = Instance.new("Frame")
+blackscreenFrame.Size = UDim2.new(1,0,1,0)
+blackscreenFrame.Position = UDim2.new(0,0,0,0)
+blackscreenFrame.BackgroundColor3 = Color3.new(0,0,0)
+blackscreenFrame.BorderSizePixel = 0
+blackscreenFrame.Visible = false
+blackscreenFrame.Parent = blackscreenGui
+
+PerfSection:Toggle({
+    Title = "Blackscreen",
+    Default = false,
+    Callback = function(state)
+        blackscreenFrame.Visible = state
+    end
+})
+
+-- ==============================
 -- Potato Mode Toggle
+-- ==============================
 PerfSection:Toggle({
 	Title = "Potato Mode",
 	Default = false,
