@@ -42,6 +42,7 @@ local crates = {
 
 local selectedCrate = nil
 local autoOpen = false
+local player = game.Players.LocalPlayer
 
 Section:Dropdown({
     Title = "Select Box",
@@ -50,8 +51,6 @@ Section:Dropdown({
         selectedCrate = value
     end
 })
-
-local player = game.Players.LocalPlayer
 
 local function getShop()
     local gui = player:WaitForChild("PlayerGui"):WaitForChild("MainGUI")
@@ -114,87 +113,82 @@ local potatoEnabled = false
 local saved = {}
 
 local function save(obj,prop)
-	saved[obj] = saved[obj] or {}
-	if saved[obj][prop] == nil then
-		saved[obj][prop] = obj[prop]
-	end
+    saved[obj] = saved[obj] or {}
+    if saved[obj][prop] == nil then
+        saved[obj][prop] = obj[prop]
+    end
 end
 
 local function optimize(obj)
-	if obj:IsA("Decal") or obj:IsA("Texture") then
-		save(obj,"Transparency")
-		obj.Transparency = 1
-	end
-	if obj:IsA("BasePart") then
-		save(obj,"Transparency")
-		save(obj,"Material")
-		save(obj,"Reflectance")
-		obj.Transparency = 1
-		obj.Material = Enum.Material.SmoothPlastic
-		obj.Reflectance = 0
-	end
-	if obj:IsA("ParticleEmitter")
-	or obj:IsA("Trail")
-	or obj:IsA("Beam")
-	or obj:IsA("Smoke")
-	or obj:IsA("Fire")
-	or obj:IsA("Sparkles") then
-		save(obj,"Enabled")
-		obj.Enabled = false
-	end
+    if obj:IsA("Decal") or obj:IsA("Texture") then
+        save(obj,"Transparency")
+        obj.Transparency = 1
+    end
+    if obj:IsA("BasePart") then
+        save(obj,"Transparency")
+        save(obj,"Material")
+        save(obj,"Reflectance")
+        obj.Transparency = 1
+        obj.Material = Enum.Material.SmoothPlastic
+        obj.Reflectance = 0
+    end
+    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") 
+    or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+        save(obj,"Enabled")
+        obj.Enabled = false
+    end
 end
 
 local function enablePotato()
-	save(lighting,"GlobalShadows")
-	lighting.GlobalShadows = false
-	for _,v in ipairs(workspace:GetDescendants()) do
-		optimize(v)
-	end
-	for _,effect in pairs(lighting:GetChildren()) do
-		if effect:IsA("PostEffect") then
-			save(effect,"Enabled")
-			effect.Enabled = false
-		end
-	end
+    save(lighting,"GlobalShadows")
+    lighting.GlobalShadows = false
+    for _,v in ipairs(workspace:GetDescendants()) do
+        optimize(v)
+    end
+    for _,effect in pairs(lighting:GetChildren()) do
+        if effect:IsA("PostEffect") then
+            save(effect,"Enabled")
+            effect.Enabled = false
+        end
+    end
 end
 
 local function disablePotato()
-	for obj,props in pairs(saved) do
-		if obj and obj.Parent then
-			for prop,val in pairs(props) do
-				obj[prop] = val
-			end
-		end
-	end
-	saved = {}
+    for obj,props in pairs(saved) do
+        if obj and obj.Parent then
+            for prop,val in pairs(props) do
+                obj[prop] = val
+            end
+        end
+    end
+    saved = {}
 end
 
--- Hide other players
 local function hideOtherPlayers(char)
-	for _, part in pairs(char:GetDescendants()) do
-		if part:IsA("BasePart") then
-			save(part,"Transparency")
-			part.Transparency = 1
-		elseif part:IsA("Decal") then
-			save(part,"Transparency")
-			part.Transparency = 1
-		elseif part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Fire") or part:IsA("Smoke") then
-			save(part,"Enabled")
-			part.Enabled = false
-		end
-	end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            save(part,"Transparency")
+            part.Transparency = 1
+        elseif part:IsA("Decal") then
+            save(part,"Transparency")
+            part.Transparency = 1
+        elseif part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Fire") or part:IsA("Smoke") then
+            save(part,"Enabled")
+            part.Enabled = false
+        end
+    end
 end
 
 -- ==============================
--- Blackscreen (client-side)
+-- Blackscreen as sibling of WindUI GUI (behind WindUI)
 -- ==============================
 local blackscreenGui = Instance.new("ScreenGui")
 blackscreenGui.Name = "ClientBlackScreen"
 blackscreenGui.ResetOnSpawn = false
 blackscreenGui.IgnoreGuiInset = true
-blackscreenGui.DisplayOrder = 99999
+blackscreenGui.DisplayOrder = 0 -- behind WindUI
 blackscreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-blackscreenGui.Parent = game:GetService("CoreGui") -- topmost
+blackscreenGui.Parent = playerGui -- same parent as WindUI
 
 local blackscreenFrame = Instance.new("Frame")
 blackscreenFrame.Size = UDim2.new(1,0,1,0)
@@ -202,8 +196,10 @@ blackscreenFrame.Position = UDim2.new(0,0,0,0)
 blackscreenFrame.BackgroundColor3 = Color3.new(0,0,0)
 blackscreenFrame.BorderSizePixel = 0
 blackscreenFrame.Visible = false
+blackscreenFrame.ZIndex = 0 -- behind all GUI
 blackscreenFrame.Parent = blackscreenGui
 
+-- Blackscreen Toggle
 PerfSection:Toggle({
     Title = "Blackscreen",
     Default = false,
@@ -216,77 +212,38 @@ PerfSection:Toggle({
 -- Potato Mode Toggle
 -- ==============================
 PerfSection:Toggle({
-	Title = "Potato Mode",
-	Default = false,
-	Callback = function(state)
-		potatoEnabled = state
-
-		if potatoEnabled then
-			enablePotato()
-
-			-- Hide existing players
-			for _, plr in pairs(Players:GetPlayers()) do
-				if plr ~= player and plr.Character then
-					hideOtherPlayers(plr.Character)
-				end
-			end
-
-			-- Optimize new map parts automatically
-			workspace.DescendantAdded:Connect(function(obj)
-				if potatoEnabled then
-					optimize(obj)
-				end
-			end)
-
-			-- Hide players as they spawn/respawn
-			Players.PlayerAdded:Connect(function(plr)
-				plr.CharacterAdded:Connect(function(char)
-					if potatoEnabled then
-						hideOtherPlayers(char)
-					end
-				end)
-			end)
-
-		else
-			disablePotato()
-			potatoEnabled = false
-		end
-	end
+    Title = "Potato Mode",
+    Default = false,
+    Callback = function(state)
+        potatoEnabled = state
+        if potatoEnabled then
+            enablePotato()
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr ~= player and plr.Character then
+                    hideOtherPlayers(plr.Character)
+                end
+            end
+        else
+            disablePotato()
+        end
+    end
 })
 
 -- Potato Mode Keybind
 PerfSection:Keybind({
-	Title = "Potato Mode Keybind",
-	Key = Enum.KeyCode.P,
-	Callback = function()
-		potatoEnabled = not potatoEnabled
-
-		if potatoEnabled then
-			enablePotato()
-
-			for _, plr in pairs(Players:GetPlayers()) do
-				if plr ~= player and plr.Character then
-					hideOtherPlayers(plr.Character)
-				end
-			end
-
-			workspace.DescendantAdded:Connect(function(obj)
-				if potatoEnabled then
-					optimize(obj)
-				end
-			end)
-
-			Players.PlayerAdded:Connect(function(plr)
-				plr.CharacterAdded:Connect(function(char)
-					if potatoEnabled then
-						hideOtherPlayers(char)
-					end
-				end)
-			end)
-
-		else
-			disablePotato()
-			potatoEnabled = false
-		end
-	end
+    Title = "Potato Mode Keybind",
+    Key = Enum.KeyCode.P,
+    Callback = function()
+        potatoEnabled = not potatoEnabled
+        if potatoEnabled then
+            enablePotato()
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr ~= player and plr.Character then
+                    hideOtherPlayers(plr.Character)
+                end
+            end
+        else
+            disablePotato()
+        end
+    end
 })
