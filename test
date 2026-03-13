@@ -8,7 +8,29 @@ local Window = WindUI:CreateWindow({
     Size = UDim2.fromOffset(320,260)
 })
 
--- Boxes Tab
+-- ==============================
+-- Reopen GUI Button
+-- ==============================
+local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local reopenGuiButton = Instance.new("TextButton")
+reopenGuiButton.Size = UDim2.new(0,120,0,40)
+reopenGuiButton.Position = UDim2.new(0,10,0,10) -- top-left corner
+reopenGuiButton.BackgroundColor3 = Color3.fromRGB(255,0,200)
+reopenGuiButton.TextColor3 = Color3.new(1,1,1)
+reopenGuiButton.TextScaled = true
+reopenGuiButton.Text = "Open MM2 Utility"
+reopenGuiButton.Parent = playerGui
+
+reopenGuiButton.MouseButton1Click:Connect(function()
+    if Window.Frame and not Window.Frame.Visible then
+        Window.Frame.Visible = true
+    end
+end)
+
+-- ==============================
+-- BOXES TAB
+-- ==============================
 local BoxesTab = Window:Tab({ Title = "Boxes", Icon = "box" })
 local Section = BoxesTab:Section({ Title = "Box Settings", Open = true })
 
@@ -37,13 +59,15 @@ local function getShop()
     return gameFrame and gameFrame:FindFirstChild("Shop")
 end
 
+-- Improved crate finder
 local function findCrateButton(crateName)
     local shop = getShop()
     if not shop then return nil end
 
-    for _,v in ipairs(shop:GetDescendants()) do
+    for _,v in pairs(shop:GetDescendants()) do
         if v:IsA("TextButton") or v:IsA("ImageButton") then
-            if string.find(string.lower(v.Name), string.lower(crateName)) then
+            if string.lower(v.Name):find(string.lower(crateName))
+            or (v.Parent and string.lower(v.Parent.Name):find(string.lower(crateName))) then
                 return v
             end
         end
@@ -63,28 +87,37 @@ Section:Toggle({
                 while autoOpen do
                     if selectedCrate then
                         local crateButton = findCrateButton(selectedCrate)
-
                         if crateButton then
-                            crateButton:Activate()
+                            pcall(function()
+                                if crateButton.MouseButton1Click then
+                                    firesignal(crateButton.MouseButton1Click)
+                                else
+                                    crateButton:Activate()
+                                end
+                            end)
                         end
                     end
-
-                    task.wait(0.4)
+                    task.wait(1)
                 end
             end)
         end
     end
 })
 
--- Performance Tab
+-- ==============================
+-- PERFORMANCE TAB
+-- ==============================
 local PerfTab = Window:Tab({ Title = "Performance", Icon = "zap" })
 local PerfSection = PerfTab:Section({ Title = "Performance Settings", Open = true })
 
 local lighting = game:GetService("Lighting")
 local workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 local potatoEnabled = false
 local saved = {}
+local potatoConnection
 
 local function save(obj,prop)
 	saved[obj] = saved[obj] or {}
@@ -94,7 +127,6 @@ local function save(obj,prop)
 end
 
 local function optimize(obj)
-
 	if obj:IsA("Decal") or obj:IsA("Texture") then
 		save(obj,"Transparency")
 		obj.Transparency = 1
@@ -116,15 +148,12 @@ local function optimize(obj)
 	or obj:IsA("Smoke")
 	or obj:IsA("Fire")
 	or obj:IsA("Sparkles") then
-		
 		save(obj,"Enabled")
 		obj.Enabled = false
 	end
-
 end
 
 local function enablePotato()
-
 	save(lighting,"GlobalShadows")
 	lighting.GlobalShadows = false
 
@@ -138,11 +167,9 @@ local function enablePotato()
 			effect.Enabled = false
 		end
 	end
-
 end
 
 local function disablePotato()
-
 	for obj,props in pairs(saved) do
 		if obj and obj.Parent then
 			for prop,val in pairs(props) do
@@ -150,11 +177,30 @@ local function disablePotato()
 			end
 		end
 	end
-
 	saved = {}
-
 end
 
+-- Hide other players continuously
+local function hideOtherPlayers()
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character then
+			for _, part in pairs(plr.Character:GetDescendants()) do
+				if part:IsA("BasePart") then
+					save(part, "Transparency")
+					part.Transparency = 1
+				elseif part:IsA("Decal") then
+					save(part, "Transparency")
+					part.Transparency = 1
+				elseif part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Fire") or part:IsA("Smoke") then
+					save(part, "Enabled")
+					part.Enabled = false
+				end
+			end
+		end
+	end
+end
+
+-- Potato Mode Toggle
 PerfSection:Toggle({
     Title = "Potato Mode",
     Default = false,
@@ -163,12 +209,18 @@ PerfSection:Toggle({
 
         if potatoEnabled then
             enablePotato()
+            potatoConnection = RunService.RenderStepped:Connect(hideOtherPlayers)
         else
             disablePotato()
+            if potatoConnection then
+                potatoConnection:Disconnect()
+                potatoConnection = nil
+            end
         end
     end
 })
 
+-- Potato Mode Keybind
 PerfSection:Keybind({
     Title = "Potato Mode Keybind",
     Key = Enum.KeyCode.P,
@@ -177,8 +229,13 @@ PerfSection:Keybind({
 
         if potatoEnabled then
             enablePotato()
+            potatoConnection = RunService.RenderStepped:Connect(hideOtherPlayers)
         else
             disablePotato()
+            if potatoConnection then
+                potatoConnection:Disconnect()
+                potatoConnection = nil
+            end
         end
     end
 })
