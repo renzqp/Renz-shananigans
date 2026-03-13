@@ -3,15 +3,49 @@ local WindUI = loadstring(game:HttpGet(
     "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
 ))()
 
+-- ==============================
+-- CONFIG SYSTEM
+-- ==============================
+local HttpService = game:GetService("HttpService")
+local ConfigFile = "MM2UtilityConfig.json"
+
+local Config = {
+    SelectedCrate = nil,
+    AutoOpen = false,
+    PotatoMode = false,
+    Blackscreen = false
+}
+
+local function SaveConfig()
+    if writefile then
+        writefile(ConfigFile, HttpService:JSONEncode(Config))
+    end
+end
+
+local function LoadConfig()
+    if isfile and isfile(ConfigFile) then
+        local data = HttpService:JSONDecode(readfile(ConfigFile))
+        for k,v in pairs(data) do
+            Config[k] = v
+        end
+    end
+end
+
+LoadConfig()
+
+-- ==============================
+-- MAIN WINDOW
+-- ==============================
 local Window = WindUI:CreateWindow({
-    Title = "MM2 Utility",
+    Title = "Renz Shenanigans",
     Size = UDim2.fromOffset(320,260)
 })
 
 -- ==============================
--- Reopen GUI Button
+-- REOPEN GUI BUTTON
 -- ==============================
-local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
 local reopenGuiButton = Instance.new("TextButton")
 reopenGuiButton.Size = UDim2.new(0,120,0,40)
@@ -19,7 +53,7 @@ reopenGuiButton.Position = UDim2.new(0,10,0,10)
 reopenGuiButton.BackgroundColor3 = Color3.fromRGB(255,0,200)
 reopenGuiButton.TextColor3 = Color3.new(1,1,1)
 reopenGuiButton.TextScaled = true
-reopenGuiButton.Text = "Open MM2 Utility"
+reopenGuiButton.Text = "Open Renz Shenanigans"
 reopenGuiButton.Parent = playerGui
 
 reopenGuiButton.MouseButton1Click:Connect(function()
@@ -29,10 +63,10 @@ reopenGuiButton.MouseButton1Click:Connect(function()
 end)
 
 -- ==============================
--- BOXES TAB
+-- BOX TAB
 -- ==============================
 local BoxesTab = Window:Tab({ Title = "Boxes", Icon = "box" })
-local Section = BoxesTab:Section({ Title = "Box Settings", Open = true })
+local BoxSection = BoxesTab:Section({ Title = "Box Settings", Open = true })
 
 local crates = {
     "KnifeBox1","KnifeBox2","KnifeBox3","KnifeBox4","KnifeBox5",
@@ -40,15 +74,16 @@ local crates = {
     "MysteryBox1","MysteryBox2"
 }
 
-local selectedCrate = nil
-local autoOpen = false
-local player = game.Players.LocalPlayer
+local selectedCrate = Config.SelectedCrate
+local autoOpen = Config.AutoOpen
 
-Section:Dropdown({
+BoxSection:Dropdown({
     Title = "Select Box",
     Values = crates,
     Callback = function(value)
         selectedCrate = value
+        Config.SelectedCrate = value
+        SaveConfig()
     end
 })
 
@@ -69,14 +104,15 @@ local function findCrateButton(crateName)
             end
         end
     end
-    return nil
 end
 
-Section:Toggle({
+BoxSection:Toggle({
     Title = "Auto open boxes",
-    Default = false,
+    Default = Config.AutoOpen,
     Callback = function(state)
         autoOpen = state
+        Config.AutoOpen = state
+        SaveConfig()
         if autoOpen then
             task.spawn(function()
                 while autoOpen do
@@ -105,11 +141,11 @@ Section:Toggle({
 local PerfTab = Window:Tab({ Title = "Performance", Icon = "zap" })
 local PerfSection = PerfTab:Section({ Title = "Performance Settings", Open = true })
 
-local lighting = game:GetService("Lighting")
-local workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
-local potatoEnabled = false
+local potatoEnabled = Config.PotatoMode
 local saved = {}
 
 local function save(obj,prop)
@@ -131,21 +167,26 @@ local function optimize(obj)
         obj.Transparency = 1
         obj.Material = Enum.Material.SmoothPlastic
         obj.Reflectance = 0
+        obj.CastShadow = false
     end
-    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") 
-    or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+    if obj:IsA("ParticleEmitter")
+    or obj:IsA("Trail")
+    or obj:IsA("Beam")
+    or obj:IsA("Smoke")
+    or obj:IsA("Fire")
+    or obj:IsA("Sparkles") then
         save(obj,"Enabled")
         obj.Enabled = false
     end
 end
 
 local function enablePotato()
-    save(lighting,"GlobalShadows")
-    lighting.GlobalShadows = false
-    for _,v in ipairs(workspace:GetDescendants()) do
+    save(Lighting,"GlobalShadows")
+    Lighting.GlobalShadows = false
+    for _,v in ipairs(Workspace:GetDescendants()) do
         optimize(v)
     end
-    for _,effect in pairs(lighting:GetChildren()) do
+    for _,effect in pairs(Lighting:GetChildren()) do
         if effect:IsA("PostEffect") then
             save(effect,"Enabled")
             effect.Enabled = false
@@ -164,86 +205,194 @@ local function disablePotato()
     saved = {}
 end
 
-local function hideOtherPlayers(char)
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            save(part,"Transparency")
-            part.Transparency = 1
-        elseif part:IsA("Decal") then
-            save(part,"Transparency")
-            part.Transparency = 1
-        elseif part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Fire") or part:IsA("Smoke") then
-            save(part,"Enabled")
-            part.Enabled = false
+Workspace.DescendantAdded:Connect(function(obj)
+    if potatoEnabled then
+        task.defer(function()
+            if obj and obj.Parent then
+                optimize(obj)
+            end
+        end)
+    end
+end)
+
+local function monitorPlayer(plr)
+    plr.CharacterAdded:Connect(function(char)
+        if not potatoEnabled then return end
+        task.wait(0.5)
+        for _,v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                save(v,"Transparency")
+                v.Transparency = 1
+            elseif v:IsA("Decal") then
+                save(v,"Transparency")
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter")
+            or v:IsA("Trail")
+            or v:IsA("Fire")
+            or v:IsA("Smoke") then
+                save(v,"Enabled")
+                v.Enabled = false
+            end
         end
+    end)
+end
+
+for _,plr in pairs(Players:GetPlayers()) do
+    if plr ~= player then
+        monitorPlayer(plr)
     end
 end
 
+Players.PlayerAdded:Connect(function(plr)
+    if plr ~= player then
+        monitorPlayer(plr)
+    end
+end)
+
 -- ==============================
--- Blackscreen as sibling of WindUI GUI (behind WindUI)
+-- BLACKSCREEN
 -- ==============================
 local blackscreenGui = Instance.new("ScreenGui")
-blackscreenGui.Name = "ClientBlackScreen"
-blackscreenGui.ResetOnSpawn = false
 blackscreenGui.IgnoreGuiInset = true
-blackscreenGui.DisplayOrder = 0 -- behind WindUI
-blackscreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-blackscreenGui.Parent = playerGui -- same parent as WindUI
+blackscreenGui.ResetOnSpawn = false
+blackscreenGui.Parent = playerGui
 
 local blackscreenFrame = Instance.new("Frame")
 blackscreenFrame.Size = UDim2.new(1,0,1,0)
-blackscreenFrame.Position = UDim2.new(0,0,0,0)
 blackscreenFrame.BackgroundColor3 = Color3.new(0,0,0)
 blackscreenFrame.BorderSizePixel = 0
-blackscreenFrame.Visible = false
-blackscreenFrame.ZIndex = 0 -- behind all GUI
+blackscreenFrame.Visible = Config.Blackscreen
 blackscreenFrame.Parent = blackscreenGui
 
--- Blackscreen Toggle
 PerfSection:Toggle({
     Title = "Blackscreen",
-    Default = false,
+    Default = Config.Blackscreen,
     Callback = function(state)
         blackscreenFrame.Visible = state
+        Config.Blackscreen = state
+        SaveConfig()
     end
 })
 
 -- ==============================
--- Potato Mode Toggle
+-- POTATO MODE TOGGLE
 -- ==============================
 PerfSection:Toggle({
     Title = "Potato Mode",
-    Default = false,
+    Default = Config.PotatoMode,
     Callback = function(state)
         potatoEnabled = state
+        Config.PotatoMode = state
+        SaveConfig()
         if potatoEnabled then
             enablePotato()
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character then
-                    hideOtherPlayers(plr.Character)
-                end
-            end
         else
             disablePotato()
         end
     end
 })
 
--- Potato Mode Keybind
-PerfSection:Keybind({
-    Title = "Potato Mode Keybind",
-    Key = Enum.KeyCode.P,
-    Callback = function()
-        potatoEnabled = not potatoEnabled
-        if potatoEnabled then
-            enablePotato()
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character then
-                    hideOtherPlayers(plr.Character)
-                end
-            end
+if Config.PotatoMode then
+    enablePotato()
+end
+
+-- ==============================
+-- INFO TAB WITH MINI-WINDOWS
+-- ==============================
+local REJOIN_INTERVAL = 2700
+local rejoinCountdown = REJOIN_INTERVAL
+local frameCount = 0
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+
+local InfoTab = Window:Tab({ Title = "Info", Icon = "info" })
+local InfoSection = InfoTab:Section({ Title = "Client Info", Open = true })
+
+local fpsWindow
+local timerWindow
+
+-- FPS counting continuously
+RunService.RenderStepped:Connect(function()
+    frameCount = frameCount + 1
+end)
+
+-- 45-minute countdown continuously
+task.spawn(function()
+    while true do
+        task.wait(1)
+        rejoinCountdown = rejoinCountdown - 1
+        if rejoinCountdown <= 0 then
+            rejoinCountdown = REJOIN_INTERVAL
+            TeleportService:Teleport(game.PlaceId, player)
+        end
+    end
+end)
+
+-- FPS Window Toggle
+InfoSection:Toggle({
+    Title = "Enable FPS Window",
+    Default = false,
+    Callback = function(state)
+        if state then
+            task.spawn(function()
+                repeat task.wait() until Window.Frame and Window.Frame.Parent
+                if fpsWindow then return end
+                fpsWindow = WindUI:CreateWindow({Title="FPS", Size=UDim2.fromOffset(200,50)})
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1,0,1,0)
+                label.TextColor3 = Color3.new(1,1,1)
+                label.BackgroundTransparency = 1
+                label.TextScaled = true
+                label.Parent = fpsWindow.Frame
+
+                task.spawn(function()
+                    while fpsWindow and fpsWindow.Frame and fpsWindow.Frame.Parent do
+                        label.Text = "FPS: "..frameCount
+                        frameCount = 0
+                        task.wait(1)
+                    end
+                end)
+            end)
         else
-            disablePotato()
+            if fpsWindow and fpsWindow.Frame then
+                fpsWindow.Frame:Destroy()
+                fpsWindow = nil
+            end
+        end
+    end
+})
+
+-- Timer Window Toggle
+InfoSection:Toggle({
+    Title = "Enable Timer Window",
+    Default = false,
+    Callback = function(state)
+        if state then
+            task.spawn(function()
+                repeat task.wait() until Window.Frame and Window.Frame.Parent
+                if timerWindow then return end
+                timerWindow = WindUI:CreateWindow({Title="Auto-Rejoin Timer", Size=UDim2.fromOffset(200,50)})
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1,0,1,0)
+                label.TextColor3 = Color3.new(1,1,1)
+                label.BackgroundTransparency = 1
+                label.TextScaled = true
+                label.Parent = timerWindow.Frame
+
+                task.spawn(function()
+                    while timerWindow and timerWindow.Frame and timerWindow.Frame.Parent do
+                        local minutes = math.floor(rejoinCountdown/60)
+                        local seconds = rejoinCountdown % 60
+                        label.Text = string.format("%02d:%02d", minutes, seconds)
+                        task.wait(1)
+                    end
+                end)
+            end)
+        else
+            if timerWindow and timerWindow.Frame then
+                timerWindow.Frame:Destroy()
+                timerWindow = nil
+            end
         end
     end
 })
