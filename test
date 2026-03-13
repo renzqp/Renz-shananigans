@@ -15,7 +15,7 @@ local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local reopenGuiButton = Instance.new("TextButton")
 reopenGuiButton.Size = UDim2.new(0,120,0,40)
-reopenGuiButton.Position = UDim2.new(0,10,0,10) -- top-left corner
+reopenGuiButton.Position = UDim2.new(0,10,0,10)
 reopenGuiButton.BackgroundColor3 = Color3.fromRGB(255,0,200)
 reopenGuiButton.TextColor3 = Color3.new(1,1,1)
 reopenGuiButton.TextScaled = true
@@ -59,7 +59,6 @@ local function getShop()
     return gameFrame and gameFrame:FindFirstChild("Shop")
 end
 
--- Improved crate finder
 local function findCrateButton(crateName)
     local shop = getShop()
     if not shop then return nil end
@@ -112,12 +111,11 @@ local PerfSection = PerfTab:Section({ Title = "Performance Settings", Open = tru
 
 local lighting = game:GetService("Lighting")
 local workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local potatoEnabled = false
 local saved = {}
-local potatoConnection
+local hideLoop
 
 local function save(obj,prop)
 	saved[obj] = saved[obj] or {}
@@ -180,19 +178,19 @@ local function disablePotato()
 	saved = {}
 end
 
--- Hide other players continuously
+-- Lightweight hiding of other players every 0.5s
 local function hideOtherPlayers()
 	for _, plr in pairs(Players:GetPlayers()) do
 		if plr ~= player and plr.Character then
 			for _, part in pairs(plr.Character:GetDescendants()) do
 				if part:IsA("BasePart") then
-					save(part, "Transparency")
+					save(part,"Transparency")
 					part.Transparency = 1
 				elseif part:IsA("Decal") then
-					save(part, "Transparency")
+					save(part,"Transparency")
 					part.Transparency = 1
 				elseif part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Fire") or part:IsA("Smoke") then
-					save(part, "Enabled")
+					save(part,"Enabled")
 					part.Enabled = false
 				end
 			end
@@ -209,13 +207,17 @@ PerfSection:Toggle({
 
         if potatoEnabled then
             enablePotato()
-            potatoConnection = RunService.RenderStepped:Connect(hideOtherPlayers)
+
+            -- Run hideOtherPlayers loop every 0.5s
+            hideLoop = task.spawn(function()
+                while potatoEnabled do
+                    hideOtherPlayers()
+                    task.wait(0.5)
+                end
+            end)
         else
             disablePotato()
-            if potatoConnection then
-                potatoConnection:Disconnect()
-                potatoConnection = nil
-            end
+            potatoEnabled = false
         end
     end
 })
@@ -229,13 +231,15 @@ PerfSection:Keybind({
 
         if potatoEnabled then
             enablePotato()
-            potatoConnection = RunService.RenderStepped:Connect(hideOtherPlayers)
+            hideLoop = task.spawn(function()
+                while potatoEnabled do
+                    hideOtherPlayers()
+                    task.wait(0.5)
+                end
+            end)
         else
             disablePotato()
-            if potatoConnection then
-                potatoConnection:Disconnect()
-                potatoConnection = nil
-            end
+            potatoEnabled = false
         end
     end
 })
