@@ -8,6 +8,7 @@ local Window = WindUI:CreateWindow({
     Size = UDim2.fromOffset(320,260)
 })
 
+-- Boxes Tab
 local BoxesTab = Window:Tab({ Title = "Boxes", Icon = "box" })
 local Section = BoxesTab:Section({ Title = "Box Settings", Open = true })
 
@@ -20,32 +21,28 @@ local crates = {
 local selectedCrate = nil
 local autoOpen = false
 
--- Dropdown
 Section:Dropdown({
     Title = "Select Box",
     Values = crates,
     Callback = function(value)
         selectedCrate = value
-        print("Selected box:", value)
     end
 })
 
 local player = game.Players.LocalPlayer
 
--- Function to find shop
 local function getShop()
     local gui = player:WaitForChild("PlayerGui"):WaitForChild("MainGUI")
     local gameFrame = gui:FindFirstChild("Game")
     return gameFrame and gameFrame:FindFirstChild("Shop")
 end
 
--- Function to find the correct crate button
 local function findCrateButton(crateName)
     local shop = getShop()
     if not shop then return nil end
 
     for _,v in ipairs(shop:GetDescendants()) do
-        if (v:IsA("TextButton") or v:IsA("ImageButton")) then
+        if v:IsA("TextButton") or v:IsA("ImageButton") then
             if string.find(string.lower(v.Name), string.lower(crateName)) then
                 return v
             end
@@ -55,7 +52,6 @@ local function findCrateButton(crateName)
     return nil
 end
 
--- Toggle
 Section:Toggle({
     Title = "Auto open boxes",
     Default = false,
@@ -66,23 +62,123 @@ Section:Toggle({
             task.spawn(function()
                 while autoOpen do
                     if selectedCrate then
-
                         local crateButton = findCrateButton(selectedCrate)
 
                         if crateButton then
                             crateButton:Activate()
-                            print("Clicked crate:", selectedCrate)
-                        else
-                            warn("Could not find crate button:", selectedCrate)
                         end
-
-                    else
-                        warn("No box selected")
                     end
 
                     task.wait(0.4)
                 end
             end)
+        end
+    end
+})
+
+-- Performance Tab
+local PerfTab = Window:Tab({ Title = "Performance", Icon = "zap" })
+local PerfSection = PerfTab:Section({ Title = "Performance Settings", Open = true })
+
+local lighting = game:GetService("Lighting")
+local workspace = game:GetService("Workspace")
+
+local potatoEnabled = false
+local saved = {}
+
+local function save(obj,prop)
+	saved[obj] = saved[obj] or {}
+	if saved[obj][prop] == nil then
+		saved[obj][prop] = obj[prop]
+	end
+end
+
+local function optimize(obj)
+
+	if obj:IsA("Decal") or obj:IsA("Texture") then
+		save(obj,"Transparency")
+		obj.Transparency = 1
+	end
+
+	if obj:IsA("BasePart") then
+		save(obj,"Transparency")
+		save(obj,"Material")
+		save(obj,"Reflectance")
+
+		obj.Transparency = 1
+		obj.Material = Enum.Material.SmoothPlastic
+		obj.Reflectance = 0
+	end
+
+	if obj:IsA("ParticleEmitter")
+	or obj:IsA("Trail")
+	or obj:IsA("Beam")
+	or obj:IsA("Smoke")
+	or obj:IsA("Fire")
+	or obj:IsA("Sparkles") then
+		
+		save(obj,"Enabled")
+		obj.Enabled = false
+	end
+
+end
+
+local function enablePotato()
+
+	save(lighting,"GlobalShadows")
+	lighting.GlobalShadows = false
+
+	for _,v in ipairs(workspace:GetDescendants()) do
+		optimize(v)
+	end
+
+	for _,effect in pairs(lighting:GetChildren()) do
+		if effect:IsA("PostEffect") then
+			save(effect,"Enabled")
+			effect.Enabled = false
+		end
+	end
+
+end
+
+local function disablePotato()
+
+	for obj,props in pairs(saved) do
+		if obj and obj.Parent then
+			for prop,val in pairs(props) do
+				obj[prop] = val
+			end
+		end
+	end
+
+	saved = {}
+
+end
+
+PerfSection:Toggle({
+    Title = "Potato Mode",
+    Default = false,
+    Callback = function(state)
+        potatoEnabled = state
+
+        if potatoEnabled then
+            enablePotato()
+        else
+            disablePotato()
+        end
+    end
+})
+
+PerfSection:Keybind({
+    Title = "Potato Mode Keybind",
+    Key = Enum.KeyCode.P,
+    Callback = function()
+        potatoEnabled = not potatoEnabled
+
+        if potatoEnabled then
+            enablePotato()
+        else
+            disablePotato()
         end
     end
 })
