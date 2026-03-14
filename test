@@ -13,7 +13,8 @@ local Config = {
     SelectedCrate = nil,
     AutoOpen = false,
     PotatoMode = false,
-    Blackscreen = false
+    Blackscreen = false,
+    ESPEnabled = false
 }
 
 local function SaveConfig()
@@ -136,14 +137,16 @@ BoxSection:Toggle({
 })
 
 -- ==============================
--- PERFORMANCE TAB
+-- VISUALS TAB
 -- ==============================
-local PerfTab = Window:Tab({ Title = "Performance", Icon = "zap" })
-local PerfSection = PerfTab:Section({ Title = "Performance Settings", Open = true })
+local PerfTab = Window:Tab({ Title = "Visuals", Icon = "zap" })
+local PerfSection = PerfTab:Section({ Title = "Visual Settings", Open = true })
+local ESPSection = PerfTab:Section({ Title = "ESP", Open = true })
 
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local potatoEnabled = Config.PotatoMode
 local saved = {}
@@ -160,24 +163,6 @@ local function optimize(obj)
         save(obj,"Transparency")
         obj.Transparency = 1
     end
-    if obj:IsA("BasePart") then
-        save(obj,"Transparency")
-        save(obj,"Material")
-        save(obj,"Reflectance")
-        obj.Transparency = 1
-        obj.Material = Enum.Material.SmoothPlastic
-        obj.Reflectance = 0
-        obj.CastShadow = false
-    end
-    if obj:IsA("ParticleEmitter")
-    or obj:IsA("Trail")
-    or obj:IsA("Beam")
-    or obj:IsA("Smoke")
-    or obj:IsA("Fire")
-    or obj:IsA("Sparkles") then
-        save(obj,"Enabled")
-        obj.Enabled = false
-    end
 end
 
 local function enablePotato()
@@ -185,12 +170,6 @@ local function enablePotato()
     Lighting.GlobalShadows = false
     for _,v in ipairs(Workspace:GetDescendants()) do
         optimize(v)
-    end
-    for _,effect in pairs(Lighting:GetChildren()) do
-        if effect:IsA("PostEffect") then
-            save(effect,"Enabled")
-            effect.Enabled = false
-        end
     end
 end
 
@@ -205,53 +184,7 @@ local function disablePotato()
     saved = {}
 end
 
-Workspace.DescendantAdded:Connect(function(obj)
-    if potatoEnabled then
-        task.defer(function()
-            if obj and obj.Parent then
-                optimize(obj)
-            end
-        end)
-    end
-end)
-
-local function monitorPlayer(plr)
-    plr.CharacterAdded:Connect(function(char)
-        if not potatoEnabled then return end
-        task.wait(0.5)
-        for _,v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then
-                save(v,"Transparency")
-                v.Transparency = 1
-            elseif v:IsA("Decal") then
-                save(v,"Transparency")
-                v.Transparency = 1
-            elseif v:IsA("ParticleEmitter")
-            or v:IsA("Trail")
-            or v:IsA("Fire")
-            or v:IsA("Smoke") then
-                save(v,"Enabled")
-                v.Enabled = false
-            end
-        end
-    end)
-end
-
-for _,plr in pairs(Players:GetPlayers()) do
-    if plr ~= player then
-        monitorPlayer(plr)
-    end
-end
-
-Players.PlayerAdded:Connect(function(plr)
-    if plr ~= player then
-        monitorPlayer(plr)
-    end
-end)
-
--- ==============================
--- BLACKSCREEN
--- ==============================
+-- Blackscreen
 local blackscreenGui = Instance.new("ScreenGui")
 blackscreenGui.IgnoreGuiInset = true
 blackscreenGui.ResetOnSpawn = false
@@ -274,9 +207,7 @@ PerfSection:Toggle({
     end
 })
 
--- ==============================
--- POTATO MODE TOGGLE
--- ==============================
+-- Potato Mode
 PerfSection:Toggle({
     Title = "Potato Mode",
     Default = Config.PotatoMode,
@@ -292,107 +223,109 @@ PerfSection:Toggle({
     end
 })
 
-if Config.PotatoMode then
-    enablePotato()
+-- ==============================
+-- ESP SYSTEM (FIXED)
+-- ==============================
+local ESPHighlights = {}
+local espConnection
+
+local function getRoleColor(plr)
+
+    local color = Color3.fromRGB(0,255,0)
+
+    local function hasTool(tool)
+        if plr.Backpack:FindFirstChild(tool) then return true end
+        if plr.Character and plr.Character:FindFirstChild(tool) then return true end
+        return false
+    end
+
+    if hasTool("Knife") then
+        color = Color3.fromRGB(255,0,0)
+    elseif hasTool("Gun") then
+        color = Color3.fromRGB(0,0,255)
+    end
+
+    return color
 end
 
--- ==============================
--- INFO TAB WITH MINI-WINDOWS
--- ==============================
-local REJOIN_INTERVAL = 2700
-local rejoinCountdown = REJOIN_INTERVAL
-local frameCount = 0
-local TeleportService = game:GetService("TeleportService")
-local RunService = game:GetService("RunService")
+local function removeHighlight(plr)
+    if ESPHighlights[plr] then
+        ESPHighlights[plr]:Destroy()
+        ESPHighlights[plr] = nil
+    end
+end
 
-local InfoTab = Window:Tab({ Title = "Info", Icon = "info" })
-local InfoSection = InfoTab:Section({ Title = "Client Info", Open = true })
+local function applyESP(plr)
 
-local fpsWindow
-local timerWindow
+    if plr == player then return end
+    if not plr.Character then
+        removeHighlight(plr)
+        return
+    end
 
--- FPS counting continuously
-RunService.RenderStepped:Connect(function()
-    frameCount = frameCount + 1
-end)
+    if not ESPHighlights[plr] then
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = plr.Character
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.FillTransparency = 0.35
+        highlight.Parent = workspace
+        ESPHighlights[plr] = highlight
+    end
 
--- 45-minute countdown continuously
-task.spawn(function()
-    while true do
-        task.wait(1)
-        rejoinCountdown = rejoinCountdown - 1
-        if rejoinCountdown <= 0 then
-            rejoinCountdown = REJOIN_INTERVAL
-            TeleportService:Teleport(game.PlaceId, player)
+    local color = getRoleColor(plr)
+    ESPHighlights[plr].FillColor = color
+    ESPHighlights[plr].OutlineColor = color
+
+end
+
+local function clearAllESP()
+    for _,highlight in pairs(ESPHighlights) do
+        if highlight then
+            highlight:Destroy()
         end
     end
-end)
+    ESPHighlights = {}
+end
 
--- FPS Window Toggle
-InfoSection:Toggle({
-    Title = "Enable FPS Window",
-    Default = false,
+ESPSection:Toggle({
+    Title = "Role ESP",
+    Default = Config.ESPEnabled,
     Callback = function(state)
+
+        Config.ESPEnabled = state
+        SaveConfig()
+
         if state then
-            task.spawn(function()
-                repeat task.wait() until Window.Frame and Window.Frame.Parent
-                if fpsWindow then return end
-                fpsWindow = WindUI:CreateWindow({Title="FPS", Size=UDim2.fromOffset(200,50)})
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1,0,1,0)
-                label.TextColor3 = Color3.new(1,1,1)
-                label.BackgroundTransparency = 1
-                label.TextScaled = true
-                label.Parent = fpsWindow.Frame
 
-                task.spawn(function()
-                    while fpsWindow and fpsWindow.Frame and fpsWindow.Frame.Parent do
-                        label.Text = "FPS: "..frameCount
-                        frameCount = 0
-                        task.wait(1)
-                    end
-                end)
+            espConnection = RunService.RenderStepped:Connect(function()
+                for _,plr in pairs(Players:GetPlayers()) do
+                    applyESP(plr)
+                end
             end)
-        else
-            if fpsWindow and fpsWindow.Frame then
-                fpsWindow.Frame:Destroy()
-                fpsWindow = nil
-            end
-        end
-    end
-})
 
--- Timer Window Toggle
-InfoSection:Toggle({
-    Title = "Enable Timer Window",
-    Default = false,
-    Callback = function(state)
-        if state then
-            task.spawn(function()
-                repeat task.wait() until Window.Frame and Window.Frame.Parent
-                if timerWindow then return end
-                timerWindow = WindUI:CreateWindow({Title="Auto-Rejoin Timer", Size=UDim2.fromOffset(200,50)})
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1,0,1,0)
-                label.TextColor3 = Color3.new(1,1,1)
-                label.BackgroundTransparency = 1
-                label.TextScaled = true
-                label.Parent = timerWindow.Frame
+            for _,plr in pairs(Players:GetPlayers()) do
 
-                task.spawn(function()
-                    while timerWindow and timerWindow.Frame and timerWindow.Frame.Parent do
-                        local minutes = math.floor(rejoinCountdown/60)
-                        local seconds = rejoinCountdown % 60
-                        label.Text = string.format("%02d:%02d", minutes, seconds)
-                        task.wait(1)
-                    end
+                plr.CharacterRemoving:Connect(function()
+                    removeHighlight(plr)
                 end)
-            end)
-        else
-            if timerWindow and timerWindow.Frame then
-                timerWindow.Frame:Destroy()
-                timerWindow = nil
+
+                plr.CharacterAdded:Connect(function()
+                    task.wait(0.5)
+                    applyESP(plr)
+                end)
+
             end
+
+        else
+
+            if espConnection then
+                espConnection:Disconnect()
+                espConnection = nil
+            end
+
+            clearAllESP()
+
         end
+
     end
 })
