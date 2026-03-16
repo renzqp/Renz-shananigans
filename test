@@ -97,6 +97,7 @@ end
 local function findCrateButton(crateName)
     local shop = getShop()
     if not shop then return nil end
+
     for _,v in pairs(shop:GetDescendants()) do
         if v:IsA("TextButton") or v:IsA("ImageButton") then
             if string.lower(v.Name):find(string.lower(crateName))
@@ -111,31 +112,60 @@ BoxSection:Toggle({
     Title = "Auto open boxes",
     Default = Config.AutoOpen,
     Callback = function(state)
+
         autoOpen = state
         Config.AutoOpen = state
         SaveConfig()
+
         if autoOpen then
             task.spawn(function()
+
                 while autoOpen do
+
                     if selectedCrate then
+
                         local crateButton = findCrateButton(selectedCrate)
+
                         if crateButton then
+
                             pcall(function()
+
+                                -- click crate
                                 if crateButton.MouseButton1Click then
                                     firesignal(crateButton.MouseButton1Click)
                                 else
                                     crateButton:Activate()
                                 end
+
                             end)
+
+                            task.wait(1)
+
+                            -- press open button
+                            local gui = player.PlayerGui:FindFirstChild("CrateOpening", true)
+
+                            if gui then
+                                local openButton = gui:FindFirstChildWhichIsA("TextButton", true)
+
+                                if openButton then
+                                    pcall(function()
+                                        openButton:Activate()
+                                    end)
+                                end
+                            end
+
                         end
+
                     end
-                    task.wait(1)
+
+                    task.wait(6)
+
                 end
+
             end)
         end
     end
 })
-
 -- ==============================
 -- VISUALS TAB
 -- ==============================
