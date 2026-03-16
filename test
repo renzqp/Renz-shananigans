@@ -88,26 +88,6 @@ BoxSection:Dropdown({
     end
 })
 
-local function getShop()
-    local gui = player:WaitForChild("PlayerGui"):WaitForChild("MainGUI")
-    local gameFrame = gui:FindFirstChild("Game")
-    return gameFrame and gameFrame:FindFirstChild("Shop")
-end
-
-local function findCrateButton(crateName)
-    local shop = getShop()
-    if not shop then return nil end
-
-    for _,v in pairs(shop:GetDescendants()) do
-        if v:IsA("TextButton") or v:IsA("ImageButton") then
-            if string.lower(v.Name):find(string.lower(crateName))
-            or (v.Parent and string.lower(v.Parent.Name):find(string.lower(crateName))) then
-                return v
-            end
-        end
-    end
-end
-
 BoxSection:Toggle({
     Title = "Auto open boxes",
     Default = Config.AutoOpen,
@@ -120,42 +100,24 @@ BoxSection:Toggle({
         if autoOpen then
             task.spawn(function()
 
+                local rs = game:GetService("ReplicatedStorage")
+
                 while autoOpen do
 
                     if selectedCrate then
+                        pcall(function()
 
-                        local crateButton = findCrateButton(selectedCrate)
+                            local remotes = rs:FindFirstChild("Remotes")
 
-                        if crateButton then
+                            if remotes then
+                                local purchase = remotes:FindFirstChild("PurchaseCrate")
 
-                            pcall(function()
-
-                                -- click crate
-                                if crateButton.MouseButton1Click then
-                                    firesignal(crateButton.MouseButton1Click)
-                                else
-                                    crateButton:Activate()
-                                end
-
-                            end)
-
-                            task.wait(1)
-
-                            -- press open button
-                            local gui = player.PlayerGui:FindFirstChild("CrateOpening", true)
-
-                            if gui then
-                                local openButton = gui:FindFirstChildWhichIsA("TextButton", true)
-
-                                if openButton then
-                                    pcall(function()
-                                        openButton:Activate()
-                                    end)
+                                if purchase then
+                                    purchase:InvokeServer(selectedCrate)
                                 end
                             end
 
-                        end
-
+                        end)
                     end
 
                     task.wait(6)
