@@ -474,17 +474,31 @@ AfkTab:Toggle({
 })
 
 -- ==============================
--- AUTO REJOIN SYSTEM (RUNS IN BACKGROUND)
+-- AUTO REJOIN SYSTEM (KICK SAFE)
 -- ==============================
+
+local CoreGui = game:GetService("CoreGui")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
 task.spawn(function()
     while true do
-        task.wait(5)
-
+        task.wait(3)
         if autoRejoinEnabled then
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId, player)
-            end)
+            local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+            if promptGui then
+                local overlay = promptGui:FindFirstChild("promptOverlay")
+                if overlay then
+                    local errorPrompt = overlay:FindFirstChild("ErrorPrompt")
+                    if errorPrompt and errorPrompt.Visible then
+                        -- Only teleport if kicked/disconnected
+                        pcall(function()
+                            TeleportService:Teleport(game.PlaceId, player)
+                        end)
+                    end
+                end
+            end
         end
     end
 end)
