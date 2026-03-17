@@ -200,108 +200,104 @@ PerfSection:Toggle({
 })
 
 -- ==============================
--- ULTRA POTATO MODE (REMOVES ALL VISUALS)
+-- CLIENT-SIDE ULTRA POTATO MODE
 -- ==============================
 
 local potatoEnabled = Config.PotatoMode
-local saved = {}
 local potatoConnection
 
-local function save(obj, prop)
-    saved[obj] = saved[obj] or {}
-    if saved[obj][prop] == nil then
-        saved[obj][prop] = obj[prop]
-    end
-end
-
-local function optimize(obj)
-    -- NEVER TOUCH UI
+-- Function to hide an object locally for this client only
+local function nuke(obj)
+    -- Never touch GUI
     if obj:IsDescendantOf(playerGui) then return end
 
-    -- Remove players' accessories
-    if obj:IsA("Accessory") or obj:IsA("Hat") then
+    -- Hide map / parts
+    if obj:IsA("BasePart") then
+        obj.LocalTransparencyModifier = 1
+        obj.CastShadow = false
+        obj.Material = Enum.Material.SmoothPlastic
+
+    -- Hide meshes
+    elseif obj:IsA("MeshPart") or obj:IsA("SpecialMesh") then
+        obj.LocalTransparencyModifier = 1
+
+    -- Remove decals / textures locally
+    elseif obj:IsA("Decal") or obj:IsA("Texture") then
         obj:Destroy()
 
-    -- Remove player characters entirely (optional)
-    elseif obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
-        for _, part in ipairs(obj:GetDescendants()) do
-            if part:IsA("BasePart") then
-                save(part, "Transparency")
-                part.Transparency = 1
-            end
-        end
-
-    -- Remove parts of the map (walls, floor, etc.)
-    elseif obj:IsA("BasePart") then
-        save(obj, "Transparency")
-        obj.Transparency = 1
-        save(obj, "CanCollide")
-        obj.CanCollide = false
-
-    -- Remove decals, textures, particles, and effects
-    elseif obj:IsA("Decal") or obj:IsA("Texture") then
-        save(obj, "Transparency")
-        obj.Transparency = 1
-    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") then
-        save(obj, "Enabled")
+    -- Disable particle effects
+    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") 
+        or obj:IsA("Smoke") or obj:IsA("Fire") then
         obj.Enabled = false
-    elseif obj:IsA("Smoke") or obj:IsA("Fire") then
-        save(obj, "Enabled")
-        obj.Enabled = false
+
+    -- Remove explosions
     elseif obj:IsA("Explosion") then
+        obj:Destroy()
+
+    -- Remove accessories (hats)
+    elseif obj:IsA("Accessory") then
         obj:Destroy()
     end
 end
 
+-- Enable client-sided ultra potato mode
 local function enablePotato()
     potatoEnabled = true
 
-    -- Disable shadows
-    save(Lighting, "GlobalShadows")
+    -- Lighting overrides (client-sided)
     Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+    Lighting.Brightness = 0
 
-    -- Clean everything immediately
+    -- First pass for all current objects
     for _, v in ipairs(Workspace:GetDescendants()) do
-        optimize(v)
+        nuke(v)
     end
 
-    -- Connect to new objects dynamically
-    potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
-        if potatoEnabled then
-            optimize(obj)
-        end
-    end)
-
-    -- Constant loop for existing objects
+    -- Constant enforcement for new objects
     task.spawn(function()
         while potatoEnabled do
             for _, v in ipairs(Workspace:GetDescendants()) do
-                optimize(v)
+                nuke(v)
             end
-            task.wait(1) -- safe interval
+            task.wait(0.5)
+        end
+    end)
+
+    -- Catch objects added later
+    potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
+        if potatoEnabled then
+            nuke(obj)
         end
     end)
 end
 
+-- Disable client-sided ultra potato
 local function disablePotato()
     potatoEnabled = false
-
     if potatoConnection then
         potatoConnection:Disconnect()
         potatoConnection = nil
     end
 
-    -- Restore saved properties
-    for obj, props in pairs(saved) do
-        if obj and obj.Parent then
-            for prop, val in pairs(props) do
-                obj[prop] = val
-            end
+    -- Visuals restore naturally on rejoin or manual client reset
+end
+
+-- Add toggle to existing Visuals tab
+PerfSection:Toggle({
+    Title = "Ultra Potato Mode",
+    Default = Config.PotatoMode,
+    Callback = function(state)
+        Config.PotatoMode = state
+        SaveConfig()
+
+        if state then
+            enablePotato()
+        else
+            disablePotato()
         end
     end
-
-    saved = {}
-end
+})
 
 -- Add the toggle into your existing Visuals tab section
 PerfSection:Toggle({
