@@ -199,75 +199,21 @@ PerfSection:Toggle({
     end
 })
 
--- ==============================
--- POTATO MODE (IMPROVED)
--- ==============================
-
-local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
-
-local potatoEnabled = Config.PotatoMode
-local saved = {}
-
-local function save(obj, prop)
-    saved[obj] = saved[obj] or {}
-    if saved[obj][prop] == nil then
-        saved[obj][prop] = obj[prop]
-    end
-end
-
-local function optimize(obj)
-
-    -- Remove textures / decals
-    if obj:IsA("Decal") or obj:IsA("Texture") then
-        save(obj, "Transparency")
-        obj.Transparency = 1
-    end
-
-    -- Remove particles
-    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
-        save(obj, "Enabled")
-        obj.Enabled = false
-    end
-
-    -- Simplify parts
-    if obj:IsA("BasePart") then
-        save(obj, "Material")
-        save(obj, "Reflectance")
-
-        obj.Material = Enum.Material.SmoothPlastic
-        obj.Reflectance = 0
-    end
-
-end
-
-local function enablePotato()
-
-    save(Lighting,"GlobalShadows")
-    save(Lighting,"FogEnd")
-
-    Lighting.GlobalShadows = false
-    Lighting.FogEnd = 9e9
-
-    for _,v in ipairs(Workspace:GetDescendants()) do
-        optimize(v)
-    end
-
-end
-
-local function disablePotato()
-
-    for obj,props in pairs(saved) do
-        if obj and obj.Parent then
-            for prop,val in pairs(props) do
-                obj[prop] = val
-            end
+-- Potato Mode
+PerfSection:Toggle({
+    Title = "Potato Mode",
+    Default = Config.PotatoMode,
+    Callback = function(state)
+        potatoEnabled = state
+        Config.PotatoMode = state
+        SaveConfig()
+        if potatoEnabled then
+            enablePotato()
+        else
+            disablePotato()
         end
     end
-
-    saved = {}
-
-end
+})
 
 -- ==============================
 -- ESP SYSTEM (FIXED)
@@ -440,52 +386,22 @@ local AfkTab = Window:Tab({
     Icon = "clock"
 })
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
--- ==============================
--- HOP WHEN ALONE
--- ==============================
-
-local autoHopEnabled = Config.AutoHopWhenAlone or false
+-- Hop when alone toggle
+local autoHopEnabled = false
 
 AfkTab:Toggle({
     Title = "Hop when alone",
-    Default = autoHopEnabled,
+    Value = false,
     Callback = function(state)
-
         autoHopEnabled = state
-        Config.AutoHopWhenAlone = state
-        SaveConfig()
 
         if state then
-            if #Players:GetPlayers() == 1 then
+            if #game:GetService("Players"):GetPlayers() == 1 then
                 hopToServer()
             end
         end
-
     end
 })
-
-
--- ==============================
--- AUTO REJOIN IF KICKED
--- ==============================
-
-local autoRejoinEnabled = Config.AutoRejoin or false
-
-AfkTab:Toggle({
-    Title = "Auto Rejoin if Kicked",
-    Default = autoRejoinEnabled,
-    Callback = function(state)
-
-        autoRejoinEnabled = state
-        Config.AutoRejoin = state
-        SaveConfig()
-
-    end
-})
-
 
 -- ==============================
 -- REJOIN AFTER 45 MINUTES
@@ -517,12 +433,12 @@ local function startTimer()
             TimerLabel:SetDesc(string.format("%02d:%02d", minutes, seconds))
 
             task.wait(1)
-            timeLeft -= 1
 
+            timeLeft -= 1
         end
 
         if rejoinEnabled then
-            TeleportService:Teleport(game.PlaceId, player)
+            game:GetService("TeleportService"):Teleport(game.PlaceId)
         end
 
         timerRunning = false
@@ -533,7 +449,7 @@ end
 
 AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
-    Default = false,
+    Value = false,
     Callback = function(state)
 
         rejoinEnabled = state
@@ -547,22 +463,43 @@ AfkTab:Toggle({
     end
 })
 
-
 -- ==============================
--- AUTO REJOIN SYSTEM
+-- AUTOFARM TAB
 -- ==============================
 
-task.spawn(function()
+local AutofarmTab = Window:Tab({
+    Title = "Autofarm",
+    Icon = "zap"
+})
 
-    while true do
-        task.wait(10)
+local AutoFarm = false
 
-        if Config.AutoRejoin then
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId, player)
+AutofarmTab:Toggle({
+    Title = "Auto Farm",
+    Desc = "Automatically collect drops/resources",
+    Value = false,
+    Callback = function(state)
+        AutoFarm = state
+
+        if state then
+            task.spawn(function()
+                while AutoFarm do
+                    local player = game.Players.LocalPlayer
+                    local char = player.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+
+                    if root then
+                        for _,v in pairs(workspace:GetDescendants()) do
+                            if v:IsA("BasePart") and (v.Name == "Drop" or v.Name == "Resource") then
+                                root.CFrame = v.CFrame
+                                task.wait(0.2)
+                            end
+                        end
+                    end
+
+                    task.wait(0.1)
+                end
             end)
         end
-
     end
-
-end)
+})
