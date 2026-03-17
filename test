@@ -386,19 +386,20 @@ local AfkTab = Window:Tab({
     Icon = "clock"
 })
 
-local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- Load previous config states
-local autoHopEnabled = Config.AutoHopWhenAlone or false
-local autoRejoinEnabled = Config.AutoRejoin or false
+-- ==============================
+-- HOP WHEN ALONE
+-- ==============================
 
--- Hop when alone toggle
+local autoHopEnabled = Config.AutoHopWhenAlone or false
+
 AfkTab:Toggle({
     Title = "Hop when alone",
     Default = autoHopEnabled,
     Callback = function(state)
+
         autoHopEnabled = state
         Config.AutoHopWhenAlone = state
         SaveConfig()
@@ -408,19 +409,29 @@ AfkTab:Toggle({
                 hopToServer()
             end
         end
+
     end
 })
 
--- Auto Rejoin if kicked toggle
+
+-- ==============================
+-- AUTO REJOIN IF KICKED
+-- ==============================
+
+local autoRejoinEnabled = Config.AutoRejoin or false
+
 AfkTab:Toggle({
     Title = "Auto Rejoin if Kicked",
     Default = autoRejoinEnabled,
     Callback = function(state)
+
         autoRejoinEnabled = state
         Config.AutoRejoin = state
         SaveConfig()
+
     end
 })
+
 
 -- ==============================
 -- REJOIN AFTER 45 MINUTES
@@ -436,33 +447,41 @@ local TimerLabel = AfkTab:Paragraph({
 })
 
 local function startTimer()
+
     if timerRunning then return end
 
     timerRunning = true
     timeLeft = 2700
 
     task.spawn(function()
+
         while rejoinEnabled and timeLeft > 0 do
+
             local minutes = math.floor(timeLeft / 60)
             local seconds = timeLeft % 60
 
             TimerLabel:SetDesc(string.format("%02d:%02d", minutes, seconds))
+
             task.wait(1)
             timeLeft -= 1
+
         end
 
         if rejoinEnabled then
-            TeleportService:Teleport(game.PlaceId)
+            TeleportService:Teleport(game.PlaceId, player)
         end
 
         timerRunning = false
+
     end)
+
 end
 
 AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
-    Value = false,
+    Default = false,
     Callback = function(state)
+
         rejoinEnabled = state
 
         if state then
@@ -470,35 +489,26 @@ AfkTab:Toggle({
         else
             TimerLabel:SetDesc("OFF")
         end
+
     end
 })
 
--- ==============================
--- AUTO REJOIN SYSTEM (KICK SAFE)
--- ==============================
 
-local CoreGui = game:GetService("CoreGui")
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+-- ==============================
+-- AUTO REJOIN SYSTEM
+-- ==============================
 
 task.spawn(function()
+
     while true do
-        task.wait(3)
-        if autoRejoinEnabled then
-            local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
-            if promptGui then
-                local overlay = promptGui:FindFirstChild("promptOverlay")
-                if overlay then
-                    local errorPrompt = overlay:FindFirstChild("ErrorPrompt")
-                    if errorPrompt and errorPrompt.Visible then
-                        -- Only teleport if kicked/disconnected
-                        pcall(function()
-                            TeleportService:Teleport(game.PlaceId, player)
-                        end)
-                    end
-                end
-            end
+        task.wait(10)
+
+        if Config.AutoRejoin then
+            pcall(function()
+                TeleportService:Teleport(game.PlaceId, player)
+            end)
         end
+
     end
+
 end)
