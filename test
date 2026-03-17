@@ -387,25 +387,40 @@ local AfkTab = Window:Tab({
 })
 
 local TeleportService = game:GetService("TeleportService")
-local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Load previous config states
+local autoHopEnabled = Config.AutoHopWhenAlone or false
+local autoRejoinEnabled = Config.AutoRejoin or false
 
 -- Hop when alone toggle
-local autoHopEnabled = false
-
 AfkTab:Toggle({
     Title = "Hop when alone",
-    Value = false,
+    Default = autoHopEnabled,
     Callback = function(state)
         autoHopEnabled = state
+        Config.AutoHopWhenAlone = state
+        SaveConfig()
 
         if state then
-            if #game:GetService("Players"):GetPlayers() == 1 then
+            if #Players:GetPlayers() == 1 then
                 hopToServer()
             end
         end
     end
 })
 
+-- Auto Rejoin if kicked toggle
+AfkTab:Toggle({
+    Title = "Auto Rejoin if Kicked",
+    Default = autoRejoinEnabled,
+    Callback = function(state)
+        autoRejoinEnabled = state
+        Config.AutoRejoin = state
+        SaveConfig()
+    end
+})
 
 -- ==============================
 -- REJOIN AFTER 45 MINUTES
@@ -421,23 +436,18 @@ local TimerLabel = AfkTab:Paragraph({
 })
 
 local function startTimer()
-
     if timerRunning then return end
 
     timerRunning = true
     timeLeft = 2700
 
     task.spawn(function()
-
         while rejoinEnabled and timeLeft > 0 do
-
             local minutes = math.floor(timeLeft / 60)
             local seconds = timeLeft % 60
 
             TimerLabel:SetDesc(string.format("%02d:%02d", minutes, seconds))
-
             task.wait(1)
-
             timeLeft -= 1
         end
 
@@ -446,16 +456,13 @@ local function startTimer()
         end
 
         timerRunning = false
-
     end)
-
 end
 
 AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
     Value = false,
     Callback = function(state)
-
         rejoinEnabled = state
 
         if state then
@@ -463,75 +470,21 @@ AfkTab:Toggle({
         else
             TimerLabel:SetDesc("OFF")
         end
-
-    end
-})
--- ==============================
--- AUTOFARM TAB
--- ==============================
-
-local AutofarmTab = Window:Tab({
-    Title = "Autofarm",
-    Icon = "zap"
-})
-
-local AutoFarm = false
-
-AutofarmTab:Toggle({
-    Title = "Auto Farm",
-    Desc = "Automatically collect drops/resources",
-    Value = false,
-    Callback = function(state)
-        AutoFarm = state
-
-        if state then
-            task.spawn(function()
-                while AutoFarm do
-                    local player = game.Players.LocalPlayer
-                    local char = player.Character
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
-
-                    if root then
-                        for _,v in pairs(workspace:GetDescendants()) do
-                            if v:IsA("BasePart") and (v.Name == "Drop" or v.Name == "Resource") then
-                                root.CFrame = v.CFrame
-                                task.wait(0.2)
-                            end
-                        end
-                    end
-
-                    task.wait(0.1)
-                end
-            end)
-        end
     end
 })
 
 -- ==============================
--- AUTO REJOIN SYSTEM
+-- AUTO REJOIN SYSTEM (RUNS IN BACKGROUND)
 -- ==============================
-
-local TeleportService = game:GetService("TeleportService")
-local CoreGui = game:GetService("CoreGui")
 
 task.spawn(function()
     while true do
-        task.wait(3)
+        task.wait(5)
 
         if autoRejoinEnabled then
-            local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
-
-            if promptGui then
-                local overlay = promptGui:FindFirstChild("promptOverlay")
-
-                if overlay then
-                    local errorPrompt = overlay:FindFirstChild("ErrorPrompt")
-
-                    if errorPrompt and errorPrompt.Visible then
-                        TeleportService:Teleport(game.PlaceId)
-                    end
-                end
-            end
+            pcall(function()
+                TeleportService:Teleport(game.PlaceId, player)
+            end)
         end
     end
 end)
