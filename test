@@ -199,34 +199,39 @@ PerfSection:Toggle({
     end
 })
 
--- ==============================
--- ULTRA CLIENT-SIDED POTATO MODE
--- ==============================
+--// Ultra Client-Sided Potato Mode
 
-local potatoEnabled = Config.PotatoMode
-local potatoConnection
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 
--- Function to hide/disable objects locally
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local enabled = true -- set to false to stop
+
+-- Function to nuke visuals
 local function nuke(obj)
+
+    -- Protect UI
     if obj:IsDescendantOf(playerGui) then return end
 
-    -- Hide all map parts
+    -- Hide ALL parts (map, walls, floors)
     if obj:IsA("BasePart") then
         obj.LocalTransparencyModifier = 1
         obj.CastShadow = false
         obj.CanCollide = false
-        obj.Material = Enum.Material.SmoothPlastic
 
     -- Hide meshes
     elseif obj:IsA("MeshPart") or obj:IsA("SpecialMesh") then
         obj.LocalTransparencyModifier = 1
 
-    -- Remove decals / textures
+    -- Remove decals/textures
     elseif obj:IsA("Decal") or obj:IsA("Texture") then
         obj:Destroy()
 
     -- Disable effects
-    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") 
+    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail")
         or obj:IsA("Smoke") or obj:IsA("Fire") then
         obj.Enabled = false
 
@@ -234,79 +239,46 @@ local function nuke(obj)
     elseif obj:IsA("Explosion") then
         obj:Destroy()
 
-    -- Remove player hats/accessories
+    -- Remove accessories
     elseif obj:IsA("Accessory") or obj:IsA("Hat") then
         obj:Destroy()
 
-    -- Hide other players’ characters entirely
+    -- Hide players
     elseif obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
-        for _, part in ipairs(obj:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.LocalTransparencyModifier = 1
+        for _, v in ipairs(obj:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.LocalTransparencyModifier = 1
             end
         end
     end
 end
 
--- Enable potato mode
-local function enablePotato()
-    potatoEnabled = true
+-- Lighting cleanup (client-side)
+Lighting.GlobalShadows = false
+Lighting.Brightness = 0
+Lighting.FogEnd = 9e9
 
-    -- Client lighting overrides
-    Lighting.GlobalShadows = false
-    Lighting.Brightness = 0
-    Lighting.FogEnd = 9e9
-
-    -- First pass
-    for _, v in ipairs(Workspace:GetDescendants()) do
-        nuke(v)
-    end
-
-    -- Constant loop for enforcement
-    task.spawn(function()
-        while potatoEnabled do
-            for _, v in ipairs(Workspace:GetDescendants()) do
-                nuke(v)
-            end
-            task.wait(0.5)
-        end
-    end)
-
-    -- Catch newly spawned objects
-    potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
-        if potatoEnabled then
-            nuke(obj)
-        end
-    end)
+-- Initial wipe
+for _, v in ipairs(Workspace:GetDescendants()) do
+    nuke(v)
 end
 
--- Disable potato mode
-local function disablePotato()
-    potatoEnabled = false
-    if potatoConnection then
-        potatoConnection:Disconnect()
-        potatoConnection = nil
-    end
-
-    -- Visuals will restore naturally on rejoin
-end
-
--- Add toggle to Visuals tab
-PerfSection:Toggle({
-    Title = "Ultra Potato Mode",
-    Default = Config.PotatoMode,
-    Callback = function(state)
-        Config.PotatoMode = state
-        SaveConfig()
-
-        if state then
-            enablePotato()
-        else
-            disablePotato()
+-- Keep wiping constantly
+task.spawn(function()
+    while enabled do
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            nuke(v)
         end
+        task.wait(0.5)
     end
-})
+end)
 
+-- Catch new objects
+Workspace.DescendantAdded:Connect(function(obj)
+    if enabled then
+        nuke(obj)
+    end
+end)
 -- Add the toggle into your existing Visuals tab section
 PerfSection:Toggle({
     Title = "Ultra Potato Mode",
