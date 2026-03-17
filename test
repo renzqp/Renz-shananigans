@@ -12,8 +12,8 @@ local ConfigFile = "MM2UtilityConfig.json"
 local Config = {
     SelectedCrate = nil,
     AutoOpen = false,
-    PotatoMode = false,
-    Blackscreen = false,
+    PotatoMode = True,
+    Blackscreen = True,
     ESPEnabled = false
 }
 
@@ -199,6 +199,10 @@ PerfSection:Toggle({
     end
 })
 
+-- ==============================
+-- POTATO MODE (UPGRADED)
+-- ==============================
+
 local potatoEnabled = Config.PotatoMode
 local saved = {}
 local potatoConnection
@@ -212,9 +216,8 @@ local function save(obj, prop)
 end
 
 local function optimize(obj)
-
-    -- Safety (ignore UI completely)
-    if obj:IsDescendantOf(game.Players.LocalPlayer.PlayerGui) then return end
+    -- Ignore UI completely
+    if obj:IsDescendantOf(playerGui) then return end
 
     if obj:IsA("Decal") or obj:IsA("Texture") then
         save(obj, "Transparency")
@@ -231,32 +234,28 @@ local function optimize(obj)
     elseif obj:IsA("Explosion") then
         obj:Destroy()
     end
-
 end
 
 local function enablePotato()
-
-    potatoEnabled = true
-
+    -- Clean everything already in the workspace
     save(Lighting, "GlobalShadows")
     Lighting.GlobalShadows = false
 
-    -- Clean everything already in game
     for _, v in ipairs(Workspace:GetDescendants()) do
         optimize(v)
     end
 
-    -- CONSTANT loop (keeps game clean)
+    -- Constant cleaner loop
     potatoLoop = task.spawn(function()
         while potatoEnabled do
             for _, v in ipairs(Workspace:GetDescendants()) do
                 optimize(v)
             end
-            task.wait(2) -- change to 0.5 for extreme mode
+            task.wait(2) -- adjust to 0.5 for aggressive mode
         end
     end)
 
-    -- Instantly clean NEW objects
+    -- Instantly clean newly spawned objects
     potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
         if potatoEnabled then
             optimize(obj)
@@ -265,7 +264,6 @@ local function enablePotato()
 end
 
 local function disablePotato()
-
     potatoEnabled = false
 
     if potatoConnection then
@@ -273,7 +271,7 @@ local function disablePotato()
         potatoConnection = nil
     end
 
-    -- Restore everything
+    -- Restore all saved properties
     for obj, props in pairs(saved) do
         if obj and obj.Parent then
             for prop, val in pairs(props) do
@@ -285,6 +283,23 @@ local function disablePotato()
     saved = {}
 end
 
+-- Potato Mode Toggle in WindUI
+PerfSection:Toggle({
+    Title = "Potato Mode",
+    Default = Config.PotatoMode,
+    Callback = function(state)
+        Config.PotatoMode = state
+        SaveConfig()
+
+        potatoEnabled = state
+
+        if state then
+            enablePotato()
+        else
+            disablePotato()
+        end
+    end
+})
 -- ==============================
 -- ESP SYSTEM (FIXED)
 -- ==============================
