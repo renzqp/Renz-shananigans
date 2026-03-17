@@ -199,21 +199,91 @@ PerfSection:Toggle({
     end
 })
 
--- Potato Mode
-PerfSection:Toggle({
-    Title = "Potato Mode",
-    Default = Config.PotatoMode,
-    Callback = function(state)
-        potatoEnabled = state
-        Config.PotatoMode = state
-        SaveConfig()
+local potatoEnabled = Config.PotatoMode
+local saved = {}
+local potatoConnection
+local potatoLoop
+
+local function save(obj, prop)
+    saved[obj] = saved[obj] or {}
+    if saved[obj][prop] == nil then
+        saved[obj][prop] = obj[prop]
+    end
+end
+
+local function optimize(obj)
+
+    -- Safety (ignore UI completely)
+    if obj:IsDescendantOf(game.Players.LocalPlayer.PlayerGui) then return end
+
+    if obj:IsA("Decal") or obj:IsA("Texture") then
+        save(obj, "Transparency")
+        obj.Transparency = 1
+
+    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") then
+        save(obj, "Enabled")
+        obj.Enabled = false
+
+    elseif obj:IsA("Smoke") or obj:IsA("Fire") then
+        save(obj, "Enabled")
+        obj.Enabled = false
+
+    elseif obj:IsA("Explosion") then
+        obj:Destroy()
+    end
+
+end
+
+local function enablePotato()
+
+    potatoEnabled = true
+
+    save(Lighting, "GlobalShadows")
+    Lighting.GlobalShadows = false
+
+    -- Clean everything already in game
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        optimize(v)
+    end
+
+    -- CONSTANT loop (keeps game clean)
+    potatoLoop = task.spawn(function()
+        while potatoEnabled do
+            for _, v in ipairs(Workspace:GetDescendants()) do
+                optimize(v)
+            end
+            task.wait(2) -- change to 0.5 for extreme mode
+        end
+    end)
+
+    -- Instantly clean NEW objects
+    potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
         if potatoEnabled then
-            enablePotato()
-        else
-            disablePotato()
+            optimize(obj)
+        end
+    end)
+end
+
+local function disablePotato()
+
+    potatoEnabled = false
+
+    if potatoConnection then
+        potatoConnection:Disconnect()
+        potatoConnection = nil
+    end
+
+    -- Restore everything
+    for obj, props in pairs(saved) do
+        if obj and obj.Parent then
+            for prop, val in pairs(props) do
+                obj[prop] = val
+            end
         end
     end
-})
+
+    saved = {}
+end
 
 -- ==============================
 -- ESP SYSTEM (FIXED)
