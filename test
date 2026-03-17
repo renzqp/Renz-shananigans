@@ -199,21 +199,75 @@ PerfSection:Toggle({
     end
 })
 
--- Potato Mode
-PerfSection:Toggle({
-    Title = "Potato Mode",
-    Default = Config.PotatoMode,
-    Callback = function(state)
-        potatoEnabled = state
-        Config.PotatoMode = state
-        SaveConfig()
-        if potatoEnabled then
-            enablePotato()
-        else
-            disablePotato()
+-- ==============================
+-- POTATO MODE (IMPROVED)
+-- ==============================
+
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+
+local potatoEnabled = Config.PotatoMode
+local saved = {}
+
+local function save(obj, prop)
+    saved[obj] = saved[obj] or {}
+    if saved[obj][prop] == nil then
+        saved[obj][prop] = obj[prop]
+    end
+end
+
+local function optimize(obj)
+
+    -- Remove textures / decals
+    if obj:IsA("Decal") or obj:IsA("Texture") then
+        save(obj, "Transparency")
+        obj.Transparency = 1
+    end
+
+    -- Remove particles
+    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+        save(obj, "Enabled")
+        obj.Enabled = false
+    end
+
+    -- Simplify parts
+    if obj:IsA("BasePart") then
+        save(obj, "Material")
+        save(obj, "Reflectance")
+
+        obj.Material = Enum.Material.SmoothPlastic
+        obj.Reflectance = 0
+    end
+
+end
+
+local function enablePotato()
+
+    save(Lighting,"GlobalShadows")
+    save(Lighting,"FogEnd")
+
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+
+    for _,v in ipairs(Workspace:GetDescendants()) do
+        optimize(v)
+    end
+
+end
+
+local function disablePotato()
+
+    for obj,props in pairs(saved) do
+        if obj and obj.Parent then
+            for prop,val in pairs(props) do
+                obj[prop] = val
+            end
         end
     end
-})
+
+    saved = {}
+
+end
 
 -- ==============================
 -- ESP SYSTEM (FIXED)
