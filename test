@@ -200,7 +200,7 @@ PerfSection:Toggle({
 })
 
 -- ==============================
--- SAFE POTATO MODE (FOR EXISTING "Visuals" TAB)
+-- ULTRA POTATO MODE (REMOVES ALL VISUALS)
 -- ==============================
 
 local potatoEnabled = Config.PotatoMode
@@ -215,23 +215,39 @@ local function save(obj, prop)
 end
 
 local function optimize(obj)
-    -- Never touch the GUI
+    -- NEVER TOUCH UI
     if obj:IsDescendantOf(playerGui) then return end
 
-    -- Decals / textures
-    if obj:IsA("Decal") or obj:IsA("Texture") then
+    -- Remove players' accessories
+    if obj:IsA("Accessory") or obj:IsA("Hat") then
+        obj:Destroy()
+
+    -- Remove player characters entirely (optional)
+    elseif obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
+        for _, part in ipairs(obj:GetDescendants()) do
+            if part:IsA("BasePart") then
+                save(part, "Transparency")
+                part.Transparency = 1
+            end
+        end
+
+    -- Remove parts of the map (walls, floor, etc.)
+    elseif obj:IsA("BasePart") then
         save(obj, "Transparency")
         obj.Transparency = 1
+        save(obj, "CanCollide")
+        obj.CanCollide = false
 
-    -- Particles / effects
+    -- Remove decals, textures, particles, and effects
+    elseif obj:IsA("Decal") or obj:IsA("Texture") then
+        save(obj, "Transparency")
+        obj.Transparency = 1
     elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") then
         save(obj, "Enabled")
         obj.Enabled = false
-
     elseif obj:IsA("Smoke") or obj:IsA("Fire") then
         save(obj, "Enabled")
         obj.Enabled = false
-
     elseif obj:IsA("Explosion") then
         obj:Destroy()
     end
@@ -240,28 +256,29 @@ end
 local function enablePotato()
     potatoEnabled = true
 
+    -- Disable shadows
     save(Lighting, "GlobalShadows")
     Lighting.GlobalShadows = false
 
-    -- Clean everything once
+    -- Clean everything immediately
     for _, v in ipairs(Workspace:GetDescendants()) do
         optimize(v)
     end
 
-    -- Connect to new objects
+    -- Connect to new objects dynamically
     potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
         if potatoEnabled then
             optimize(obj)
         end
     end)
 
-    -- Constant loop
+    -- Constant loop for existing objects
     task.spawn(function()
         while potatoEnabled do
             for _, v in ipairs(Workspace:GetDescendants()) do
                 optimize(v)
             end
-            task.wait(3)
+            task.wait(1) -- safe interval
         end
     end)
 end
@@ -285,6 +302,22 @@ local function disablePotato()
 
     saved = {}
 end
+
+-- Add the toggle into your existing Visuals tab section
+PerfSection:Toggle({
+    Title = "Ultra Potato Mode",
+    Default = Config.PotatoMode,
+    Callback = function(state)
+        Config.PotatoMode = state
+        SaveConfig()
+
+        if state then
+            enablePotato()
+        else
+            disablePotato()
+        end
+    end
+})
 
 -- Add the toggle into your existing "Visuals" section
 PerfSection:Toggle({
