@@ -199,111 +199,15 @@ PerfSection:Toggle({
     end
 })
 
---// Ultra Client-Sided Potato Mode
-
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
-local enabled = true -- set to false to stop
-
--- Function to nuke visuals
-local function nuke(obj)
-
-    -- Protect UI
-    if obj:IsDescendantOf(playerGui) then return end
-
-    -- Hide ALL parts (map, walls, floors)
-    if obj:IsA("BasePart") then
-        obj.LocalTransparencyModifier = 1
-        obj.CastShadow = false
-        obj.CanCollide = false
-
-    -- Hide meshes
-    elseif obj:IsA("MeshPart") or obj:IsA("SpecialMesh") then
-        obj.LocalTransparencyModifier = 1
-
-    -- Remove decals/textures
-    elseif obj:IsA("Decal") or obj:IsA("Texture") then
-        obj:Destroy()
-
-    -- Disable effects
-    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail")
-        or obj:IsA("Smoke") or obj:IsA("Fire") then
-        obj.Enabled = false
-
-    -- Remove explosions
-    elseif obj:IsA("Explosion") then
-        obj:Destroy()
-
-    -- Remove accessories
-    elseif obj:IsA("Accessory") or obj:IsA("Hat") then
-        obj:Destroy()
-
-    -- Hide players
-    elseif obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
-        for _, v in ipairs(obj:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.LocalTransparencyModifier = 1
-            end
-        end
-    end
-end
-
--- Lighting cleanup (client-side)
-Lighting.GlobalShadows = false
-Lighting.Brightness = 0
-Lighting.FogEnd = 9e9
-
--- Initial wipe
-for _, v in ipairs(Workspace:GetDescendants()) do
-    nuke(v)
-end
-
--- Keep wiping constantly
-task.spawn(function()
-    while enabled do
-        for _, v in ipairs(Workspace:GetDescendants()) do
-            nuke(v)
-        end
-        task.wait(0.5)
-    end
-end)
-
--- Catch new objects
-Workspace.DescendantAdded:Connect(function(obj)
-    if enabled then
-        nuke(obj)
-    end
-end)
--- Add the toggle into your existing Visuals tab section
-PerfSection:Toggle({
-    Title = "Ultra Potato Mode",
-    Default = Config.PotatoMode,
-    Callback = function(state)
-        Config.PotatoMode = state
-        SaveConfig()
-
-        if state then
-            enablePotato()
-        else
-            disablePotato()
-        end
-    end
-})
-
--- Add the toggle into your existing "Visuals" section
+-- Potato Mode
 PerfSection:Toggle({
     Title = "Potato Mode",
     Default = Config.PotatoMode,
     Callback = function(state)
+        potatoEnabled = state
         Config.PotatoMode = state
         SaveConfig()
-
-        if state then
+        if potatoEnabled then
             enablePotato()
         else
             disablePotato()
@@ -599,4 +503,3 @@ AutofarmTab:Toggle({
         end
     end
 })
-
