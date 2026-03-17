@@ -406,44 +406,6 @@ AfkTab:Toggle({
     end
 })
 
--- ==============================
--- AUTO REJOIN IF KICKED
--- ==============================
-
-local autoRejoinEnabled = false
-
-task.spawn(function()
-    while true do
-        task.wait(3)
-
-        if autoRejoinEnabled then
-
-            local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
-
-            if promptGui then
-                local overlay = promptGui:FindFirstChild("promptOverlay")
-
-                if overlay then
-                    local errorPrompt = overlay:FindFirstChild("ErrorPrompt")
-
-                    if errorPrompt and errorPrompt.Visible then
-                        TeleportService:Teleport(game.PlaceId)
-                    end
-                end
-            end
-
-        end
-    end
-end)
-
-AfkTab:Toggle({
-    Title = "Auto Rejoin if Kicked",
-    Desc = "Automatically rejoins if disconnected",
-    Value = false,
-    Callback = function(state)
-        autoRejoinEnabled = state
-    end
-})
 
 -- ==============================
 -- REJOIN AFTER 45 MINUTES
@@ -544,3 +506,32 @@ AutofarmTab:Toggle({
         end
     end
 })
+
+-- ==============================
+-- AUTO REJOIN SYSTEM
+-- ==============================
+
+local TeleportService = game:GetService("TeleportService")
+local CoreGui = game:GetService("CoreGui")
+
+task.spawn(function()
+    while true do
+        task.wait(3)
+
+        if autoRejoinEnabled then
+            local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+
+            if promptGui then
+                local overlay = promptGui:FindFirstChild("promptOverlay")
+
+                if overlay then
+                    local errorPrompt = overlay:FindFirstChild("ErrorPrompt")
+
+                    if errorPrompt and errorPrompt.Visible then
+                        TeleportService:Teleport(game.PlaceId)
+                    end
+                end
+            end
+        end
+    end
+end)
