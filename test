@@ -321,3 +321,134 @@ ESPSection:Toggle({
 
     end
 })
+
+-- ==============================
+-- SERVER HOPPER CONFIG
+-- ==============================
+local autoHopEnabled = false
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local placeId = game.PlaceId
+local currentJobId = game.JobId
+local player = Players.LocalPlayer
+
+-- Function to fetch public servers
+local function getServers()
+    local servers = {}
+    local success, response = pcall(function()
+        return game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100")
+    end)
+    if success then
+        local data = HttpService:JSONDecode(response)
+        for _, server in pairs(data.data) do
+            if server.playing > 0 and server.id ~= currentJobId then
+                table.insert(servers, server.id)
+            end
+        end
+    end
+    return servers
+end
+
+-- Function to hop to a random server with other players
+local function hopToServer()
+    local servers = getServers()
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        TeleportService:TeleportToPlaceInstance(placeId, randomServer, player)
+    else
+        task.wait(5)
+        hopToServer()
+    end
+end
+
+-- Check if you are alone
+local function checkAlone()
+    if autoHopEnabled and #Players:GetPlayers() == 1 then
+        hopToServer()
+    end
+end
+
+-- Run the check whenever a player leaves
+Players.PlayerRemoving:Connect(function()
+    task.wait(1)
+    checkAlone()
+end)
+
+-- ==============================
+-- WINDUI GUI
+-- ==============================
+local Window = WindUI:CreateWindow({ Title = "Renz Shenanigans", Size = UDim2.fromOffset(320,260) })
+
+-- Keep your existing tabs
+local MainTab = Window:Tab({ Title = "Main", Icon = "home" })
+-- (Other MainTab features like ESP, Clickers, etc. remain untouched)
+
+local SettingsTab = Window:Tab({ Title = "Server", Icon = "globe" })
+SettingsTab:Section({ Title = "Server Hop Settings", Open = true })
+
+-- Toggle renamed to "Hop when alone"
+SettingsTab:Toggle({
+    Title = "Hop when alone",
+    Default = false,
+    Callback = function(state)
+        autoHopEnabled = state
+        if state then
+            checkAlone()
+        end
+    end
+})
+
+-- ==============================
+-- REJOIN AFTER 45 MINUTES
+-- ==============================
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local rejoinEnabled = false
+local timerRunning = false
+local timeLeft = 2700 -- 45 minutes in seconds
+
+-- Timer label
+local TimerLabel = SettingsTab:Label({
+    Title = "Rejoin Timer: OFF"
+})
+
+local function startTimer()
+    if timerRunning then return end
+    timerRunning = true
+    timeLeft = 2700
+
+    task.spawn(function()
+        while rejoinEnabled and timeLeft > 0 do
+            local minutes = math.floor(timeLeft / 60)
+            local seconds = timeLeft % 60
+
+            TimerLabel:Set("Rejoin Timer: "..string.format("%02d:%02d", minutes, seconds))
+
+            task.wait(1)
+            timeLeft -= 1
+        end
+
+        if rejoinEnabled then
+            TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+        end
+
+        timerRunning = false
+    end)
+end
+
+-- Toggle
+SettingsTab:Toggle({
+    Title = "Rejoin after 45 mins",
+    Default = false,
+    Callback = function(state)
+        rejoinEnabled = state
+
+        if state then
+            startTimer()
+        else
+            TimerLabel:Set("Rejoin Timer: OFF")
+        end
+    end
+})
