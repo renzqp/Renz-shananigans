@@ -200,32 +200,32 @@ PerfSection:Toggle({
 })
 
 -- ==============================
--- CLIENT-SIDE ULTRA POTATO MODE
+-- ULTRA CLIENT-SIDED POTATO MODE
 -- ==============================
 
 local potatoEnabled = Config.PotatoMode
 local potatoConnection
 
--- Function to hide an object locally for this client only
+-- Function to hide/disable objects locally
 local function nuke(obj)
-    -- Never touch GUI
     if obj:IsDescendantOf(playerGui) then return end
 
-    -- Hide map / parts
+    -- Hide all map parts
     if obj:IsA("BasePart") then
         obj.LocalTransparencyModifier = 1
         obj.CastShadow = false
+        obj.CanCollide = false
         obj.Material = Enum.Material.SmoothPlastic
 
     -- Hide meshes
     elseif obj:IsA("MeshPart") or obj:IsA("SpecialMesh") then
         obj.LocalTransparencyModifier = 1
 
-    -- Remove decals / textures locally
+    -- Remove decals / textures
     elseif obj:IsA("Decal") or obj:IsA("Texture") then
         obj:Destroy()
 
-    -- Disable particle effects
+    -- Disable effects
     elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") 
         or obj:IsA("Smoke") or obj:IsA("Fire") then
         obj.Enabled = false
@@ -234,27 +234,35 @@ local function nuke(obj)
     elseif obj:IsA("Explosion") then
         obj:Destroy()
 
-    -- Remove accessories (hats)
-    elseif obj:IsA("Accessory") then
+    -- Remove player hats/accessories
+    elseif obj:IsA("Accessory") or obj:IsA("Hat") then
         obj:Destroy()
+
+    -- Hide other players’ characters entirely
+    elseif obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
+        for _, part in ipairs(obj:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.LocalTransparencyModifier = 1
+            end
+        end
     end
 end
 
--- Enable client-sided ultra potato mode
+-- Enable potato mode
 local function enablePotato()
     potatoEnabled = true
 
-    -- Lighting overrides (client-sided)
+    -- Client lighting overrides
     Lighting.GlobalShadows = false
-    Lighting.FogEnd = 9e9
     Lighting.Brightness = 0
+    Lighting.FogEnd = 9e9
 
-    -- First pass for all current objects
+    -- First pass
     for _, v in ipairs(Workspace:GetDescendants()) do
         nuke(v)
     end
 
-    -- Constant enforcement for new objects
+    -- Constant loop for enforcement
     task.spawn(function()
         while potatoEnabled do
             for _, v in ipairs(Workspace:GetDescendants()) do
@@ -264,7 +272,7 @@ local function enablePotato()
         end
     end)
 
-    -- Catch objects added later
+    -- Catch newly spawned objects
     potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
         if potatoEnabled then
             nuke(obj)
@@ -272,7 +280,7 @@ local function enablePotato()
     end)
 end
 
--- Disable client-sided ultra potato
+-- Disable potato mode
 local function disablePotato()
     potatoEnabled = false
     if potatoConnection then
@@ -280,10 +288,10 @@ local function disablePotato()
         potatoConnection = nil
     end
 
-    -- Visuals restore naturally on rejoin or manual client reset
+    -- Visuals will restore naturally on rejoin
 end
 
--- Add toggle to existing Visuals tab
+-- Add toggle to Visuals tab
 PerfSection:Toggle({
     Title = "Ultra Potato Mode",
     Default = Config.PotatoMode,
