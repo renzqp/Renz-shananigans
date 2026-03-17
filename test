@@ -199,10 +199,13 @@ PerfSection:Toggle({
     end
 })
 
+-- ==============================
+-- SAFE POTATO MODE (FOR EXISTING "Visuals" TAB)
+-- ==============================
+
 local potatoEnabled = Config.PotatoMode
 local saved = {}
 local potatoConnection
-local potatoLoop
 
 local function save(obj, prop)
     saved[obj] = saved[obj] or {}
@@ -212,63 +215,66 @@ local function save(obj, prop)
 end
 
 local function optimize(obj)
+    -- Never touch the GUI
+    if obj:IsDescendantOf(playerGui) then return end
 
+    -- Decals / textures
     if obj:IsA("Decal") or obj:IsA("Texture") then
         save(obj, "Transparency")
         obj.Transparency = 1
 
+    -- Particles / effects
     elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") then
+        save(obj, "Enabled")
+        obj.Enabled = false
+
+    elseif obj:IsA("Smoke") or obj:IsA("Fire") then
         save(obj, "Enabled")
         obj.Enabled = false
 
     elseif obj:IsA("Explosion") then
         obj:Destroy()
-
-    elseif obj:IsA("Smoke") or obj:IsA("Fire") then
-        save(obj, "Enabled")
-        obj.Enabled = false
     end
-
 end
 
 local function enablePotato()
+    potatoEnabled = true
 
     save(Lighting, "GlobalShadows")
     Lighting.GlobalShadows = false
 
-    -- Clean existing
+    -- Clean everything once
     for _, v in ipairs(Workspace:GetDescendants()) do
         optimize(v)
     end
 
-    -- Constant cleaner loop (VERY IMPORTANT)
-    potatoLoop = task.spawn(function()
-        while potatoEnabled do
-            for _, v in ipairs(Workspace:GetDescendants()) do
-                optimize(v)
-            end
-            task.wait(2) -- adjust speed here (lower = more aggressive)
-        end
-    end)
-
-    -- Catch NEW objects instantly
+    -- Connect to new objects
     potatoConnection = Workspace.DescendantAdded:Connect(function(obj)
         if potatoEnabled then
             optimize(obj)
         end
     end)
+
+    -- Constant loop
+    task.spawn(function()
+        while potatoEnabled do
+            for _, v in ipairs(Workspace:GetDescendants()) do
+                optimize(v)
+            end
+            task.wait(3)
+        end
+    end)
 end
 
 local function disablePotato()
+    potatoEnabled = false
 
     if potatoConnection then
         potatoConnection:Disconnect()
         potatoConnection = nil
     end
 
-    potatoEnabled = false
-
-    -- restore everything
+    -- Restore saved properties
     for obj, props in pairs(saved) do
         if obj and obj.Parent then
             for prop, val in pairs(props) do
@@ -279,6 +285,22 @@ local function disablePotato()
 
     saved = {}
 end
+
+-- Add the toggle into your existing "Visuals" section
+PerfSection:Toggle({
+    Title = "Potato Mode",
+    Default = Config.PotatoMode,
+    Callback = function(state)
+        Config.PotatoMode = state
+        SaveConfig()
+
+        if state then
+            enablePotato()
+        else
+            disablePotato()
+        end
+    end
+})
 
 -- ==============================
 -- ESP SYSTEM (FIXED)
