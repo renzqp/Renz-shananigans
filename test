@@ -378,16 +378,27 @@ Players.PlayerRemoving:Connect(function()
 end)
 
 -- ==============================
--- HOP WHEN ALONE
+-- AFK STUFF TAB
 -- ==============================
 
-ServerSection:Toggle({
+local AfkTab = Window:Tab({
+    Title = "Afk stuff",
+    Icon = "clock"
+})
+
+-- Hop when alone toggle
+local autoHopEnabled = false
+
+AfkTab:Toggle({
     Title = "Hop when alone",
-    Default = false,
+    Value = false,
     Callback = function(state)
         autoHopEnabled = state
+
         if state then
-            checkAlone()
+            if #game:GetService("Players"):GetPlayers() == 1 then
+                hopToServer()
+            end
         end
     end
 })
@@ -400,13 +411,15 @@ local rejoinEnabled = false
 local timerRunning = false
 local timeLeft = 2700
 
-local TimerLabel = ServerSection:Label({
-    Title = "Rejoin Timer: OFF"
+local TimerLabel = AfkTab:Paragraph({
+    Title = "Rejoin Timer",
+    Desc = "OFF"
 })
 
 local function startTimer()
 
     if timerRunning then return end
+
     timerRunning = true
     timeLeft = 2700
 
@@ -417,15 +430,15 @@ local function startTimer()
             local minutes = math.floor(timeLeft / 60)
             local seconds = timeLeft % 60
 
-            TimerLabel:Set("Rejoin Timer: "..string.format("%02d:%02d", minutes, seconds))
+            TimerLabel:SetDesc(string.format("%02d:%02d", minutes, seconds))
 
             task.wait(1)
-            timeLeft -= 1
 
+            timeLeft -= 1
         end
 
         if rejoinEnabled then
-            TeleportService:Teleport(game.PlaceId, game.Players.LocalPlayer)
+            game:GetService("TeleportService"):Teleport(game.PlaceId)
         end
 
         timerRunning = false
@@ -434,9 +447,9 @@ local function startTimer()
 
 end
 
-ServerSection:Toggle({
+AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
-    Default = false,
+    Value = false,
     Callback = function(state)
 
         rejoinEnabled = state
@@ -444,7 +457,7 @@ ServerSection:Toggle({
         if state then
             startTimer()
         else
-            TimerLabel:Set("Rejoin Timer: OFF")
+            TimerLabel:SetDesc("OFF")
         end
 
     end
