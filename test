@@ -462,3 +462,44 @@ AfkTab:Toggle({
 
     end
 })
+
+-- ==============================
+-- AUTOFARM TAB
+-- ==============================
+
+local AutofarmTab = Window:Tab({
+    Title = "Autofarm",
+    Icon = "zap"
+})
+
+local AutoFarm = false
+
+AutofarmTab:Toggle({
+    Title = "Auto Farm",
+    Desc = "Automatically collect drops/resources",
+    Value = false,
+    Callback = function(state)
+        AutoFarm = state
+
+        if state then
+            task.spawn(function()
+                while AutoFarm do
+                    local player = game.Players.LocalPlayer
+                    local char = player.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+
+                    if root then
+                        for _,v in pairs(workspace:GetDescendants()) do
+                            if v:IsA("BasePart") and (v.Name == "Drop" or v.Name == "Resource") then
+                                root.CFrame = v.CFrame
+                                task.wait(0.2)
+                            end
+                        end
+                    end
+
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end
+})
