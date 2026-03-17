@@ -378,32 +378,7 @@ Players.PlayerRemoving:Connect(function()
 end)
 
 -- ==============================
--- WINDUI GUI
--- ==============================
-
-local Window = WindUI:CreateWindow({
-    Title = "Renz Shenanigans",
-    Size = UDim2.fromOffset(320,260)
-})
-
-local MainTab = Window:Tab({
-    Title = "Main",
-    Icon = "home"
-})
-
-local ServerTab = Window:Tab({
-    Title = "Server",
-    Icon = "globe"
-})
-
--- IMPORTANT: store the section
-local ServerSection = ServerTab:Section({
-    Title = "Server Options",
-    Open = true
-})
-
--- ==============================
--- HOP WHEN ALONE TOGGLE
+-- HOP WHEN ALONE
 -- ==============================
 
 ServerSection:Toggle({
@@ -411,7 +386,6 @@ ServerSection:Toggle({
     Default = false,
     Callback = function(state)
         autoHopEnabled = state
-
         if state then
             checkAlone()
         end
@@ -433,7 +407,6 @@ local TimerLabel = ServerSection:Label({
 local function startTimer()
 
     if timerRunning then return end
-
     timerRunning = true
     timeLeft = 2700
 
@@ -441,26 +414,26 @@ local function startTimer()
 
         while rejoinEnabled and timeLeft > 0 do
 
-            local minutes = math.floor(timeLeft/60)
+            local minutes = math.floor(timeLeft / 60)
             local seconds = timeLeft % 60
 
-            TimerLabel:Set("Rejoin Timer: "..string.format("%02d:%02d",minutes,seconds))
+            TimerLabel:Set("Rejoin Timer: "..string.format("%02d:%02d", minutes, seconds))
 
             task.wait(1)
-
             timeLeft -= 1
+
         end
 
         if rejoinEnabled then
-            TeleportService:Teleport(placeId, player)
+            TeleportService:Teleport(game.PlaceId, game.Players.LocalPlayer)
         end
 
         timerRunning = false
+
     end)
 
 end
 
--- Toggle
 ServerSection:Toggle({
     Title = "Rejoin after 45 mins",
     Default = false,
