@@ -450,7 +450,7 @@ end
 
 AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
-    Value = false,
+    Value = True,
     Callback = function(state)
 
         rejoinEnabled = state
@@ -466,7 +466,7 @@ AfkTab:Toggle({
 
 AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
-    Value = false,
+    Value = True,
     Callback = function(state)
 
         rejoinEnabled = state
