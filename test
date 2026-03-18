@@ -325,7 +325,7 @@ ESPSection:Toggle({
 -- ==============================
 -- SERVER HOPPER CONFIG
 -- ==============================
-local autoHopEnabled = false
+local autoHopEnabled = True
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -391,9 +391,9 @@ local autoHopEnabled = false
 
 AfkTab:Toggle({
     Title = "Hop when alone",
-    Value = false,
+    Value = True,
     Callback = function(state)
-        autoHopEnabled = state
+        autoHopEnabled = State
 
         if state then
             if #game:GetService("Players"):GetPlayers() == 1 then
@@ -404,11 +404,11 @@ AfkTab:Toggle({
 })
 
 -- ==============================
--- REJOIN AFTER 45 MINUTES
+-- REJOIN AFTER 45 MINUTES (FIXED)
 -- ==============================
 
-local rejoinEnabled = false
-local timerRunning = false
+local rejoinEnabled = True
+local timerRunning = True
 local timeLeft = 2700
 
 local TimerLabel = AfkTab:Paragraph({
@@ -419,7 +419,6 @@ local TimerLabel = AfkTab:Paragraph({
 local function startTimer()
 
     if timerRunning then return end
-
     timerRunning = true
     timeLeft = 2700
 
@@ -433,12 +432,14 @@ local function startTimer()
             TimerLabel:SetDesc(string.format("%02d:%02d", minutes, seconds))
 
             task.wait(1)
-
             timeLeft -= 1
+
         end
 
         if rejoinEnabled then
-            game:GetService("TeleportService"):Teleport(game.PlaceId)
+            pcall(function()
+                rejoinSameServer()
+            end)
         end
 
         timerRunning = false
@@ -446,6 +447,22 @@ local function startTimer()
     end)
 
 end
+
+AfkTab:Toggle({
+    Title = "Rejoin after 45 mins",
+    Value = false,
+    Callback = function(state)
+
+        rejoinEnabled = state
+
+        if state then
+            startTimer()
+        else
+            TimerLabel:SetDesc("OFF")
+        end
+
+    end
+})
 
 AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
@@ -503,3 +520,68 @@ AutofarmTab:Toggle({
         end
     end
 })
+
+-- ==============================
+-- REJOIN SYSTEM (ADVANCED)
+-- ==============================
+local TeleportService = game:GetService("TeleportService")
+local CoreGui = game:GetService("CoreGui")
+
+local placeId = game.PlaceId
+local jobId = game.JobId
+local player = game.Players.LocalPlayer
+
+local function rejoinSameServer()
+    TeleportService:TeleportToPlaceInstance(placeId, jobId, player)
+end
+
+local function rejoinGame()
+    TeleportService:Teleport(placeId, player)
+end
+
+-- Auto-execute after teleport
+if syn and syn.queue_on_teleport then
+    syn.queue_on_teleport([[
+        loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()
+    ]])
+elseif queue_on_teleport then
+    queue_on_teleport([[
+        loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()
+    ]])
+end
+
+
+-- ==============================
+-- AUTO REJOIN ON KICK / ERROR
+-- ==============================
+
+task.spawn(function()
+
+    while task.wait(3) do
+
+        local prompt = CoreGui:FindFirstChild("RobloxPromptGui")
+
+        if prompt then
+            for _,v in pairs(prompt:GetDescendants()) do
+                if v:IsA("TextLabel") then
+
+                    local text = string.lower(v.Text)
+
+                    if string.find(text, "kick")
+                    or string.find(text, "error")
+                    or string.find(text, "disconnect") then
+
+                        task.wait(2)
+
+                        pcall(function()
+                            rejoinGame()
+                        end)
+
+                    end
+                end
+            end
+        end
+
+    end
+
+end)
