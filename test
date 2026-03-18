@@ -378,7 +378,7 @@ Players.PlayerRemoving:Connect(function()
 end)
 
 -- ==============================
--- AFK STUFF TAB
+-- AFK STUFF TAB (AUTO ENABLED)
 -- ==============================
 
 local AfkTab = Window:Tab({
@@ -386,14 +386,17 @@ local AfkTab = Window:Tab({
     Icon = "clock"
 })
 
--- Hop when alone toggle
-local autoHopEnabled = false
+-- ==============================
+-- AUTO HOP WHEN ALONE
+-- ==============================
+
+local autoHopEnabled = true -- AUTO ENABLED
 
 AfkTab:Toggle({
     Title = "Hop when alone",
-    Value = True,
+    Value = true,
     Callback = function(state)
-        autoHopEnabled = State
+        autoHopEnabled = state
 
         if state then
             if #game:GetService("Players"):GetPlayers() == 1 then
@@ -404,16 +407,16 @@ AfkTab:Toggle({
 })
 
 -- ==============================
--- REJOIN AFTER 45 MINUTES (FIXED)
+-- REJOIN AFTER 45 MINUTES (AUTO ENABLED)
 -- ==============================
 
-local rejoinEnabled = True
-local timerRunning = True
+local rejoinEnabled = true -- AUTO ENABLED
+local timerRunning = false
 local timeLeft = 2700
 
 local TimerLabel = AfkTab:Paragraph({
     Title = "Rejoin Timer",
-    Desc = "OFF"
+    Desc = "Starting..."
 })
 
 local function startTimer()
@@ -448,9 +451,10 @@ local function startTimer()
 
 end
 
+-- TOGGLE (still usable but defaults ON)
 AfkTab:Toggle({
     Title = "Rejoin after 45 mins",
-    Value = True,
+    Value = true,
     Callback = function(state)
 
         rejoinEnabled = state
@@ -464,21 +468,8 @@ AfkTab:Toggle({
     end
 })
 
-AfkTab:Toggle({
-    Title = "Rejoin after 45 mins",
-    Value = True,
-    Callback = function(state)
-
-        rejoinEnabled = state
-
-        if state then
-            startTimer()
-        else
-            TimerLabel:SetDesc("OFF")
-        end
-
-    end
-})
+-- START TIMER AUTOMATICALLY
+startTimer()
 
 -- ==============================
 -- AUTOFARM TAB
